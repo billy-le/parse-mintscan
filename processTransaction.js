@@ -1,5 +1,10 @@
 const currency = require("currency.js");
+const { exec } = require("child_process");
 const { format: dateFormat, parseISO } = require("date-fns");
+const util = require("util");
+const fs = require("fs");
+
+const execPromise = util.promisify(exec);
 
 const denom = {
   uatom: 1_000_000,
@@ -9,7 +14,10 @@ function getModuleType(mod) {
   return mod[mod["@type"].replaceAll(".", "-")];
 }
 
-function processTransaction(address, { txhash, timestamp, id, tx, logs }) {
+async function processTransaction(
+  address,
+  { txhash, timestamp, id, tx, logs }
+) {
   let date = dateFormat(parseISO(timestamp), "yyyy-MM-dd H:mm:ss"),
     type = "",
     sentAsset = "",
@@ -63,12 +71,28 @@ function processTransaction(address, { txhash, timestamp, id, tx, logs }) {
                 receivedAmount = atom;
               } else if (coin.value.includes("ibc/")) {
                 const [amount, pathHash] = coin.value.split("ibc/");
-                const cu = currency(amount, { precision: 8 }).divide(
+                const ibcCoin = currency(amount, { precision: 8 }).divide(
                   1_000_000
                 ).value;
                 type = "Airdrop";
-                receivedAsset = "BTSG";
-                receivedAmount = cu;
+                receivedAmount = ibcCoin;
+                try {
+                  const { stdout = "", stderr } = await execPromise(
+                    `$GOPATH/bin/gaiad query ibc-transfer denom-trace ${pathHash} --node https://cosmos-rpc.quickapi.com:443`
+                  );
+                  if (stderr) {
+                    console.log(stderr);
+                  } else {
+                    const token = stdout
+                      .split("\n")
+                      .find((part) => part.includes("base_denom"))
+                      .replaceAll(/base_denom:/gi, "")
+                      .replaceAll(" ", "");
+                    receivedAsset = token;
+                  }
+                } catch (err) {
+                  console.log(err);
+                }
               }
             }
           }

@@ -26,10 +26,10 @@ const pipeline = chain([
   fs.createReadStream("cosmos.json"),
   parser(),
   streamArray(),
-  (data) => {
+  async (data) => {
     const transactions = [];
     const transaction = data.value;
-    const mainTx = processTransaction(process.argv[2], transaction);
+    const mainTx = await processTransaction(process.argv[2], transaction);
     transactions.push(mainTx);
 
     return transactions.map((tx) => tx.join(",") + ",\n");
