@@ -243,7 +243,6 @@ async function processTransaction(
             })
           );
         }
-
         break;
       }
       case "/ibc.core.client.v1.MsgUpdateClient": {
@@ -253,9 +252,122 @@ async function processTransaction(
         break;
       }
       case "/ibc.core.channel.v1.MsgRecvPacket": {
+        // console.log(transactionHash);
+        for (const msg of msgTypeGroup[type]) {
+          const packetData = msg.packet["data__@parse__@transfer"];
+          if (packetData.receiver === address) {
+            const matchedLog = logs.find((log) =>
+              log.events.some((event) =>
+                event.attributes.some((attr) => attr.value === type)
+              )
+            );
+            if (matchedLog) {
+              const event = matchedLog.events.find(
+                (event) => event.type === "coin_received"
+              );
+              if (event) {
+                const eventObj = event.attributes.find(
+                  (attr) => attr.key === "amount"
+                );
+                if (eventObj) {
+                  const tokens = eventObj.value.split(",");
+                  for (const token of tokens) {
+                    if (token.includes("uatom")) {
+                      const [tokenValue] = token.split("uatom");
+                      const amount =
+                        currency(tokenValue).divide(denominator).value;
+                      transactions.push(
+                        createTransaction({
+                          date,
+                          transactionHash,
+                          transactionId,
+                          type: "Deposit",
+                          receivedAmount: amount,
+                          receivedAsset: "ATOM",
+                          feeAsset: "",
+                        })
+                      );
+                    } else if (token.includes("ibc/")) {
+                      const [tokenValue] = token.split("ibc/");
+                      const ibcToken = await getIbcDenomination(token);
+                      const amount =
+                        currency(tokenValue).divide(denominator).value;
+                      transactions.push(
+                        createTransaction({
+                          date,
+                          transactionHash,
+                          transactionId,
+                          type: "Deposit",
+                          receivedAmount: amount,
+                          receivedAsset: ibcToken,
+                          feeAsset: "",
+                        })
+                      );
+                    }
+                  }
+                }
+              }
+            }
+          } else if (packetData.sender === address) {
+            // console.log(msg)
+          }
+        }
         break;
       }
       case "/cosmos.bank.v1beta1.MsgSend": {
+        for (const msg of msgTypeGroup[type]) {
+          let amount = currency(0, { precision: 8 });
+          if (msg.to_address === address) {
+            for (const am of msg.amount) {
+              if (am.denom === "uatom") {
+                amount = amount.add(currency(am.amount, { precision: 8 }));
+
+                transactions.push(
+                  createTransaction({
+                    date,
+                    transactionHash,
+                    transactionId,
+                    type: "Deposit",
+                    receivedAsset: "ATOM",
+                    receivedAmount: amount.divide(denominator).value,
+                    feeAsset: "",
+                  })
+                );
+              } else {
+                const token = await getIbcDenomination(am.denom);
+                amount = amount.add(currency(am.amount, { precision: 8 }));
+
+                transactions.push(
+                  createTransaction({
+                    date,
+                    transactionHash,
+                    transactionId,
+                    type: "Income",
+                    receivedAsset: token,
+                    receivedAmount: amount.divide(denominator).value,
+                    feeAsset: "",
+                  })
+                );
+              }
+            }
+          } else if (msg.from_address === address) {
+            for (const am of msg.amount) {
+              amount = amount.add(currency(am.amount, { precision: 8 }));
+            }
+
+            transactions.push(
+              createTransaction({
+                date,
+                transactionHash,
+                transactionId,
+                type: "Withdrawal",
+                sentAsset: "ATOM",
+                sentAmount: amount.divide(denominator).value,
+                feeAmount: getFees(tx),
+              })
+            );
+          }
+        }
         break;
       }
       case "/ibc.core.channel.v1.MsgTimeout": {
