@@ -17,11 +17,13 @@ chain([
 
 const msgTypes = new Set();
 
+let txCount = 0;
 const pipeline = chain([
   fs.createReadStream("cosmos.json"),
   parser(),
   streamArray(),
   async (data) => {
+    txCount++;
     const transactions = [];
     const transaction = data.value;
     const mainTx = await processTransaction(walletAddress, transaction);
@@ -36,6 +38,5 @@ const pipeline = chain([
 ]);
 
 pipeline.on("end", () => {
-  console.log(msgTypes.values());
-  console.log("data.csv created");
+  console.log("data.csv created", `\nprocessed ${txCount} transactions`);
 });
