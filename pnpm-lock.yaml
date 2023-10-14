@@ -1,12 +1,16 @@
 lockfileVersion: 5.4
 
 specifiers:
+  csv-parser: ^3.0.0
+  csv-stringify: ^6.4.4
   currency.js: ^2.0.4
   date-fns: ^2.30.0
   stream-chain: ^2.2.5
   stream-json: ^1.8.0
 
 dependencies:
+  csv-parser: 3.0.0
+  csv-stringify: 6.4.4
   currency.js: 2.0.4
   date-fns: 2.30.0
   stream-chain: 2.2.5
@@ -21,6 +25,18 @@ packages:
       regenerator-runtime: 0.14.0
     dev: false
 
+  /csv-parser/3.0.0:
+    resolution: {integrity: sha512-s6OYSXAK3IdKqYO33y09jhypG/bSDHPuyCme/IdEHfWpLf/jKcpitVFyOC6UemgGk8v7Q5u2XE0vvwmanxhGlQ==}
+    engines: {node: '>= 10'}
+    hasBin: true
+    dependencies:
+      minimist: 1.2.8
+    dev: false
+
+  /csv-stringify/6.4.4:
+    resolution: {integrity: sha512-NDshLupGa7gp4UG4sSNIqwYJqgSwvds0SvENntxoVoVvTzXcrHvd5gG2MWpbRpSNvk59dlmIe1IwNvSxN4IVmg==}
+    dev: false
+
   /currency.js/2.0.4:
     resolution: {integrity: sha512-6/OplJYgJ0RUlli74d93HJ/OsKVBi8lB1+Z6eJYS1YZzBuIp4qKKHpJ7ad+GvTlWmLR/hLJOWTykN5Nm8NJ7+w==}
     engines: {node: '>=4'}
@@ -31,6 +47,10 @@ packages:
     engines: {node: '>=0.11'}
     dependencies:
       '@babel/runtime': 7.23.1
+    dev: false
+
+  /minimist/1.2.8:
+    resolution: {integrity: sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==}
     dev: false
 
   /regenerator-runtime/0.14.0:

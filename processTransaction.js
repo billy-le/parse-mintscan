@@ -3,6 +3,9 @@ const util = require("util");
 const currency = require("currency.js");
 const { exec } = require("child_process");
 const { format: dateFormat, parseISO } = require("date-fns");
+const csvParser = require("csv-parser");
+const { stringify: csvStringify } = require("csv-stringify/sync");
+
 const execPromise = util.promisify(exec);
 const denominator = 1_000_000;
 
@@ -293,7 +296,30 @@ async function processTransaction(
                       timeout_height: { revision_number, revision_height },
                     },
                   } = msg;
-                  // TODO: when an ibc transaction timeouts, we need to remove the duplicate entry from the data.csv
+                  // when an ibc transaction timeouts, we need to remove the entry from the data.csv
+                  const readStream = fs.createReadStream("data.csv", "utf-8");
+                  let records = [];
+                  readStream
+                    .pipe(
+                      csvParser({
+                        headers: true,
+                      })
+                    )
+                    .on("data", (data) => {
+                      if (
+                        data.Meta !==
+                        `timeout_height: ${revision_number}_${revision_height}`
+                      ) {
+                        records.push(data);
+                      } else {
+                        console.log(data);
+                      }
+                    })
+                    .on("end", () => {
+                      const writeStream = fs.createWriteStream("data.csv");
+                      writeStream.write(csvStringify(records));
+                      writeStream.end();
+                    });
                 }
                 break;
               }
@@ -316,7 +342,7 @@ async function processTransaction(
                         }).divide(denominator).value,
                         receivedAsset: parts[parts.length - 1],
                         type: "Deposit",
-                        description: "*******",
+                        feeAsset: "",
                       })
                     );
                   }
@@ -334,81 +360,33 @@ async function processTransaction(
         case "/cosmos.bank.v1beta1.MsgSend": {
           processed = true;
           for (const msg of msgTypeGroup[type]) {
-            let amount = currency(0, { precision: 8 });
-            if (msg.to_address === address) {
-              for (const am of msg.amount) {
-                if (am.denom === "uatom") {
-                  amount = amount.add(currency(am.amount, { precision: 8 }));
+            const { from_address, to_address, amount: amounts } = msg;
+            if (from_address !== address && to_address !== address) break;
 
-                  transactions.push(
-                    createTransaction({
-                      date,
-                      transactionHash,
-                      transactionId,
-                      type: "Deposit",
-                      receivedAsset: "ATOM",
-                      receivedAmount: amount.divide(denominator).value,
-                      feeAsset: "",
-                    })
-                  );
-                } else {
-                  const tokens = am.denom.split(",");
-                  for (const token of tokens) {
-                    if (token === "uatom") {
-                      amount = amount.add(
-                        currency(am.amount, { precision: 8 })
-                      );
+            for (const { denom, amount } of amounts) {
+              const tokenAmount = currency(amount, { precision: 6 }).divide(
+                denominator
+              ).value;
+              const token = await getIbcDenomination(denom);
 
-                      transactions.push(
-                        createTransaction({
-                          date,
-                          transactionHash,
-                          transactionId,
-                          type: "Income",
-                          receivedAsset: "ATOM",
-                          receivedAmount: amount.divide(denominator).value,
-                          feeAsset: "",
-                        })
-                      );
-                    } else if (token.includes("ibc/")) {
-                      const pathHash = token.replace("ibc/", "");
-                      const _token = await getIbcDenomination(pathHash);
+              const transaction = createTransaction({
+                date,
+                transactionHash,
+                transactionId,
+              });
 
-                      amount = amount.add(
-                        currency(am.amount, { precision: 8 })
-                      );
-
-                      transactions.push(
-                        createTransaction({
-                          date,
-                          transactionHash,
-                          transactionId,
-                          type: "Income",
-                          receivedAsset: _token,
-                          receivedAmount: amount.divide(denominator).value,
-                          feeAsset: "",
-                        })
-                      );
-                    }
-                  }
-                }
-              }
-            } else if (msg.from_address === address) {
-              for (const am of msg.amount) {
-                amount = amount.add(currency(am.amount, { precision: 8 }));
+              if (from_address === address) {
+                transaction.feeAmount = getFees(tx);
+                transaction.sentAmount = tokenAmount;
+                transaction.sentAsset = token;
+                transaction.type = "Transfer";
+              } else if (to_address === address) {
+                transaction.receivedAmount = tokenAmount;
+                transaction.receivedAsset = token;
+                transaction.type = "Deposit";
               }
 
-              transactions.push(
-                createTransaction({
-                  date,
-                  transactionHash,
-                  transactionId,
-                  type: "Withdrawal",
-                  sentAsset: "ATOM",
-                  sentAmount: amount.divide(denominator).value,
-                  feeAmount: getFees(tx),
-                })
-              );
+              transactions.push(transaction);
             }
           }
           break;
