@@ -59,6 +59,7 @@ function createTransaction({
   description = "",
   transactionHash = "",
   transactionId = "",
+  meta = "",
 }) {
   return {
     date,
@@ -74,6 +75,7 @@ function createTransaction({
     description,
     transactionHash,
     transactionId,
+    meta,
   };
 }
 
@@ -126,7 +128,7 @@ async function processTransaction(
           processed = true;
 
           let proposals = [];
-          for (const msg in msgTypeGroup[type]) {
+          for (const msg of msgTypeGroup[type]) {
             proposals.push("#" + msg.proposal_id);
           }
 
@@ -242,43 +244,34 @@ async function processTransaction(
           processed = true;
           const messages = msgTypeGroup[type];
           for (const msg of messages) {
-            const tokens = msg.token.denom.split(",");
-
-            for (const token of tokens) {
-              if (token === "uatom") {
-                const sentAmount = currency(msg.token.amount, {
-                  precision: 8,
-                }).divide(denominator).value;
-                transactions.push(
-                  createTransaction({
-                    date,
-                    transactionHash,
-                    transactionId,
-                    type: "Transfer",
-                    sentAsset: "ATOM",
-                    sentAmount,
-                    feeAmount: getFees(tx),
-                  })
-                );
-              } else if (token.includes("ibc/")) {
-                const pathHash = token.replace("ibc/", "");
-                const _token = await getIbcDenomination(pathHash);
-
-                const sentAmount = currency(msg.token.amount, {
-                  precision: 8,
-                }).divide(denominator).value;
-                transactions.push(
-                  createTransaction({
-                    date,
-                    transactionHash,
-                    transactionId,
-                    type: "Transfer",
-                    sentAsset: _token,
-                    sentAmount,
-                    feeAmount: getFees(tx),
-                  })
-                );
+            const {
+              token: { amount, denom },
+              sender,
+              receiver,
+              timeout_height: { revision_number, revision_height },
+            } = msg;
+            const tokens = denom.split(",");
+            const transferAmount = currency(amount, { precision: 6 }).divide(
+              denominator
+            ).value;
+            const transaction = createTransaction({
+              date,
+              transactionHash,
+              transactionId,
+              feeAmount: getFees(tx),
+              type: "Transfer",
+              meta: `timeout_height: ${revision_number}_${revision_height}`,
+            });
+            for (const _token of tokens) {
+              const token = await getIbcDenomination(_token);
+              if (sender === address) {
+                transaction.sentAmount = transferAmount;
+                transaction.sentAsset = token;
+              } else if (receiver === address) {
+                transaction.receivedAmount = transferAmount;
+                transaction.receivedAsset = token;
               }
+              transactions.push(transaction);
             }
           }
           break;
@@ -293,8 +286,15 @@ async function processTransaction(
                 break;
               }
               case "/ibc.core.channel.v1.MsgTimeout": {
-                // not used by end consumer
-                // console.log(msgTypeGroup[msgType]);
+                processed = true;
+                for (const msg of msgTypeGroup[msgType]) {
+                  const {
+                    packet: {
+                      timeout_height: { revision_number, revision_height },
+                    },
+                  } = msg;
+                  // TODO: when an ibc transaction timeouts, we need to remove the duplicate entry from the data.csv
+                }
                 break;
               }
               case "/ibc.core.channel.v1.MsgRecvPacket": {
@@ -500,7 +500,9 @@ async function processTransaction(
   }
 
   if (!processed) {
-    //
+    // if any transactions weren't processed, will end up here
+    // most of unprocessed tx will be MsgAcknowledgements
+    // console.log(Object.keys(msgTypeGroup));
   }
 
   return transactions.map((tx) => Object.values(tx).join(",") + ",\n").join("");
