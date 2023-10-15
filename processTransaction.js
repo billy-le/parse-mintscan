@@ -3,8 +3,6 @@ const util = require("util");
 const currency = require("currency.js");
 const { exec } = require("child_process");
 const { format: dateFormat, parseISO } = require("date-fns");
-const csvParser = require("csv-parser");
-const { stringify: csvStringify } = require("csv-stringify/sync");
 
 const execPromise = util.promisify(exec);
 const denominator = 1_000_000;
@@ -150,7 +148,7 @@ async function processTransaction(
 
         case "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward": {
           processed = true;
-          const tokens = {};
+          const tokensDict = {};
           for (const log of logs) {
             for (const event of log.events) {
               if (event.type == "withdraw_rewards") {
@@ -158,40 +156,32 @@ async function processTransaction(
                   (attr) => attr.key === "amount"
                 );
 
-                const values = attr.value.split(",");
+                const tokens = attr.value.split(",");
+                for (const value of tokens) {
+                  const [amount, token] = value
+                    .split(/^(\d+)(.+)/)
+                    .filter((x) => x);
 
-                for (const value of values) {
-                  if (value.includes("uatom")) {
-                    if (!tokens["atom"]) {
-                      tokens["atom"] = currency(0, { precision: 8 });
-                    }
-                    const [atomValue] = value.split("uatom");
-                    tokens["atom"] = tokens["atom"].add(
-                      currency(atomValue, { precision: 8 }).divide(denominator)
-                    );
-                  } else {
-                    const [amount, pathHash] = value.split("ibc/");
-                    const token = await getIbcDenomination(pathHash);
-                    if (!tokens[token]) {
-                      tokens[token] = currency(0, { precision: 8 });
-                    }
-                    tokens[token] = tokens[token].add(
-                      currency(amount, { precision: 8 }).divide(denominator)
-                    );
+                  const ibcToken = await getIbcDenomination(token);
+                  if (!tokensDict[ibcToken]) {
+                    tokensDict[ibcToken] = currency(0, { precision: 8 });
                   }
+                  tokensDict[ibcToken] = tokensDict[ibcToken]
+                    .add(amount)
+                    .divide(denominator);
                 }
               }
             }
           }
 
-          for (const token in tokens) {
+          for (const token in tokensDict) {
             transactions.push(
               createTransaction({
                 date,
                 transactionHash,
                 transactionId,
                 receivedAsset: token.toUpperCase(),
-                receivedAmount: tokens[token].value,
+                receivedAmount: tokensDict[token].value,
                 description: "Claim Rewards",
                 type: "Staking",
                 feeAsset: "",
@@ -254,7 +244,7 @@ async function processTransaction(
               timeout_height: { revision_number, revision_height },
             } = msg;
             const tokens = denom.split(",");
-            const transferAmount = currency(amount, { precision: 6 }).divide(
+            const transferAmount = currency(amount, { precision: 8 }).divide(
               denominator
             ).value;
             const transaction = createTransaction({
@@ -289,6 +279,7 @@ async function processTransaction(
                 break;
               }
               case "/ibc.core.channel.v1.MsgTimeout": {
+                const filename = "timeout_txs.txt";
                 processed = true;
                 for (const msg of msgTypeGroup[msgType]) {
                   const {
@@ -296,30 +287,20 @@ async function processTransaction(
                       timeout_height: { revision_number, revision_height },
                     },
                   } = msg;
-                  // when an ibc transaction timeouts, we need to remove the entry from the data.csv
-                  const readStream = fs.createReadStream("data.csv", "utf-8");
-                  let records = [];
-                  readStream
-                    .pipe(
-                      csvParser({
-                        headers: true,
-                      })
-                    )
-                    .on("data", (data) => {
-                      if (
-                        data.Meta !==
-                        `timeout_height: ${revision_number}_${revision_height}`
-                      ) {
-                        records.push(data);
-                      } else {
-                        console.log(data);
-                      }
-                    })
-                    .on("end", () => {
-                      const writeStream = fs.createWriteStream("data.csv");
-                      writeStream.write(csvStringify(records));
-                      writeStream.end();
-                    });
+                  const timeout = `timeout_height: ${revision_number}_${revision_height}`;
+
+                  try {
+                    // when an ibc transaction timeouts, we need to remove the entry from the data.csv
+                    // so we store all timeout txs in a file
+                    const txs = await fs.promises.readFile(filename, "utf-8");
+                    if (!txs.includes(timeout)) {
+                      await fs.promises.writeFile(filename, `${timeout}\n`, {
+                        flag: "a",
+                      });
+                    }
+                  } catch (err) {
+                    await fs.promises.writeFile(filename, `${timeout}\n`);
+                  }
                 }
                 break;
               }
@@ -338,7 +319,7 @@ async function processTransaction(
                         transactionHash,
                         transactionId,
                         receivedAmount: currency(amount, {
-                          precision: 6,
+                          precision: 8,
                         }).divide(denominator).value,
                         receivedAsset: parts[parts.length - 1],
                         type: "Deposit",
@@ -364,7 +345,7 @@ async function processTransaction(
             if (from_address !== address && to_address !== address) break;
 
             for (const { denom, amount } of amounts) {
-              const tokenAmount = currency(amount, { precision: 6 }).divide(
+              const tokenAmount = currency(amount, { precision: 8 }).divide(
                 denominator
               ).value;
               const token = await getIbcDenomination(denom);
@@ -483,7 +464,7 @@ async function processTransaction(
     // console.log(Object.keys(msgTypeGroup));
   }
 
-  return transactions.map((tx) => Object.values(tx).join(",") + ",\n").join("");
+  return transactions.map((tx) => Object.values(tx).join(",") + "\n").join("");
 }
 
 module.exports = processTransaction;
