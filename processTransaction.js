@@ -193,9 +193,10 @@ async function processTransaction(
         case "/cosmos.staking.v1beta1.MsgDelegate": {
           processed = true;
           let delegatedAmount = currency(0, { precision: 8 });
-          const data = msgTypeGroup[type];
-          for (const d of data) {
-            delegatedAmount = delegatedAmount.add(d.amount.amount);
+          let asset = "";
+          for (const { amount: token } of msgTypeGroup[type]) {
+            asset = await getIbcDenomination(token.denom);
+            delegatedAmount = delegatedAmount.add(token.amount);
           }
           transactions.push(
             createTransaction({
@@ -205,7 +206,7 @@ async function processTransaction(
               type: "Expense",
               description: `Delegated ${
                 delegatedAmount.divide(denominator).value
-              } ATOM`,
+              } ${asset}`,
               feeAmount: getFees(tx),
             })
           );
@@ -215,18 +216,21 @@ async function processTransaction(
         case "/cosmos.staking.v1beta1.MsgBeginRedelegate": {
           processed = true;
           let redelagation = currency(0, { precision: 8 });
-          msgTypeGroup[type].forEach((msg) => {
-            const amount = currency(msg.amount.amount, { precision: 8 }).divide(
+          let asset = "";
+          for (const { amount: token } of msgTypeGroup[type]) {
+            asset = await getIbcDenomination(token.denom);
+            const amount = currency(token.amount, { precision: 8 }).divide(
               denominator
             );
             redelagation = redelagation.add(amount);
-          });
+          }
+
           transactions.push(
             createTransaction({
               date,
               transactionHash,
               transactionId,
-              description: `Redelegate ${redelagation.value} ATOM`,
+              description: `Redelegate ${redelagation.value} ${asset}`,
               type: "Other",
               feeAmount: getFees(tx),
             })
