@@ -12,8 +12,16 @@ function transformTransaction(tx) {
 
   switch (type) {
     case "Other": {
-      return [
+      let transactions = [
         {
+          ...tx,
+          feeAmount: "",
+          feeAsset: "",
+          type: tx.sentAmount ? "withdrawal" : "deposit",
+        },
+      ];
+      if (tx.feeAmount) {
+        transactions.push({
           ...tx,
           sentAmount: feeAmount,
           sentAsset: feeAsset,
@@ -22,15 +30,9 @@ function transformTransaction(tx) {
           feeAmount: "",
           feeAsset: "",
           type: "cost",
-        },
-
-        {
-          ...tx,
-          feeAmount: "",
-          feeAsset: "",
-          type: tx.sentAmount ? "withdrawal" : "deposit",
-        },
-      ];
+        });
+      }
+      return transactions;
     }
     case "Expense": {
       return [

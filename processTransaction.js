@@ -574,6 +574,7 @@ async function processTransaction(
         }
         case "/tendermint.liquidity.v1beta1.MsgWithdrawWithinBatch": {
           processed = true;
+
           for (const msg of msgTypeGroup[type]) {
             transactions.push(
               ...transformTransaction(
@@ -604,7 +605,6 @@ async function processTransaction(
                     date,
                     transactionHash,
                     transactionId,
-                    feeAmount: getFees(tx),
                     description: "Deposit to Liquidity Pool",
                     type: "Other",
                     sentAmount: currency(token.amount, { precision: 6 }).divide(
@@ -615,6 +615,19 @@ async function processTransaction(
                 )
               );
             }
+
+            transactions.push(
+              ...transformTransaction(
+                createTransaction({
+                  date,
+                  transactionHash,
+                  transactionId,
+                  feeAmount: getFees(tx),
+                  description: "Deposit to Liquidity Pool",
+                  type: "Expense",
+                })
+              )
+            );
           }
           break;
         }
