@@ -6,7 +6,12 @@ const { format: dateFormat, parseISO } = require("date-fns");
 const transformTransaction = require("./transactions-transformers/koinly");
 
 const execPromise = util.promisify(exec);
-const denominator = 1_000_000;
+const precision = 18;
+const denominator = Math.pow(10, precision);
+
+function getDenominator(decimals) {
+  return Math.pow(10, decimals);
+}
 
 function getModuleType(mod) {
   return mod[mod["@type"].replaceAll(".", "-")];
@@ -15,6 +20,7 @@ function getModuleType(mod) {
 async function getIbcDenomination(pathHash) {
   if (!pathHash) throw new Error("pathHash not provided");
   const filePath = "./ibc-denominations.json";
+
   try {
     const file = await fs.promises.readFile(filePath);
     const ibcDenominations = JSON.parse(file.toString());
@@ -34,13 +40,16 @@ async function getIbcDenomination(pathHash) {
       .replaceAll(/base_denom:/gi, "")
       .replaceAll(" ", "");
 
-    ibcDenominations[pathHash] = token;
+    ibcDenominations[pathHash] = { symbol: token, decimals: 6 };
 
-    await fs.promises.writeFile(filePath, JSON.stringify(ibcDenominations));
+    await fs.promises.writeFile(
+      filePath,
+      JSON.stringify(ibcDenominations, null, 2)
+    );
     return token;
   } catch (err) {
     console.log(err);
-    return "Unknown";
+    return { symbol: "Unknown", decimals: 0 };
   }
 }
 
@@ -51,7 +60,7 @@ function createTransaction({
   sentAmount = "",
   receivedAsset = "",
   receivedAmount = "",
-  feeAsset = "ATOM",
+  feeAsset = "EVMOS",
   feeAmount = "",
   marketValueCurrency = "",
   marketValue = "",
@@ -78,10 +87,13 @@ function createTransaction({
   };
 }
 
-function getFees(tx) {
+async function getFees(tx) {
   const { auth_info } = getModuleType(tx);
   const fee = auth_info.fee.amount[0];
-  return currency(fee.amount, { precision: 6 }).divide(denominator).value;
+  const feeToken = await getIbcDenomination(fee.denom);
+  return currency(fee.amount, { precision: feeToken.decimals }).divide(
+    Math.pow(10, feeToken.decimals)
+  ).value;
 }
 
 async function processTransaction(
@@ -116,7 +128,7 @@ async function processTransaction(
           date,
           transactionHash,
           transactionId,
-          feeAmount: getFees(tx),
+          feeAmount: await getFees(tx),
           type: "Expense",
           description: "Transaction Failed",
         })
@@ -141,7 +153,7 @@ async function processTransaction(
                 transactionId,
                 type: "Expense",
                 description: `Vote on ${proposals.join(" ")}`,
-                feeAmount: getFees(tx),
+                feeAmount: await getFees(tx),
               })
             )
           );
@@ -178,10 +190,20 @@ async function processTransaction(
                       .split(/^(\d+)(.+)/)
                       .filter((x) => x);
                     const token = await getIbcDenomination(_token);
-                    if (!tokens[token]) {
-                      tokens[token] = currency(0, { precision: 6 });
+
+                    if (!tokens[token.symbol]) {
+                      tokens[token.symbol] = {
+                        amount: currency(0, {
+                          precision: token.decimals,
+                        }),
+                        decimals: token.decimals,
+                      };
                     }
-                    tokens[token] = tokens[token].add(amount);
+
+                    tokens[token.symbol] = {
+                      amount: tokens[token.symbol].amount.add(amount),
+                      decimals: token.decimals,
+                    };
                   }
                 }
               }
@@ -195,7 +217,9 @@ async function processTransaction(
                   date,
                   transactionHash,
                   transactionId,
-                  receivedAmount: tokens[token].divide(denominator).value,
+                  receivedAmount: tokens[token].amount.divide(
+                    getDenominator(tokens[token].decimals)
+                  ).value,
                   receivedAsset: token,
                   type: "Staking",
                   description: `Claimed Rewards`,
@@ -212,7 +236,7 @@ async function processTransaction(
                 date,
                 transactionHash,
                 transactionId,
-                feeAmount: getFees(tx),
+                feeAmount: await getFees(tx),
                 type: "Expense",
               })
             )
@@ -255,10 +279,19 @@ async function processTransaction(
                       .split(/^(\d+)(.+)/)
                       .filter((x) => x);
                     const token = await getIbcDenomination(_token);
-                    if (!tokens[token]) {
-                      tokens[token] = currency(0, { precision: 6 });
+                    if (!tokens[token.symbol]) {
+                      tokens[token.symbol] = {
+                        amount: currency(0, {
+                          precision: token.decimals,
+                        }),
+                        decimals: token.decimals,
+                      };
                     }
-                    tokens[token] = tokens[token].add(amount);
+
+                    tokens[token.symbol] = {
+                      amount: tokens[token.symbol].amount.add(amount),
+                      decimals: token.decimals,
+                    };
                   }
                 }
               }
@@ -272,7 +305,9 @@ async function processTransaction(
                   date,
                   transactionHash,
                   transactionId,
-                  receivedAmount: tokens[token].divide(denominator).value,
+                  receivedAmount: tokens[token].amount.divide(
+                    getDenominator(tokens[token].decimals)
+                  ).value,
                   receivedAsset: token,
                   type: "Staking",
                   description: `Claimed Rewards`,
@@ -283,28 +318,26 @@ async function processTransaction(
             );
           }
 
-          let delegatedAmount = currency(0, { precision: 6 });
-          let asset = "";
-
-          for (const { amount: token } of msgTypeGroup[type]) {
-            asset = await getIbcDenomination(token.denom);
-            delegatedAmount = delegatedAmount.add(token.amount);
+          for (const {
+            amount: { denom, amount },
+          } of msgTypeGroup[type]) {
+            const token = await getIbcDenomination(denom);
+            const delegatedAmount = currency(amount, {
+              precision: token.decimals,
+            }).divide(getDenominator(token.decimals));
+            transactions.push(
+              ...transformTransaction(
+                createTransaction({
+                  date,
+                  transactionHash,
+                  transactionId,
+                  type: "Expense",
+                  description: `Delegated ${delegatedAmount.value} ${token.symbol}`,
+                  feeAmount: await getFees(tx),
+                })
+              )
+            );
           }
-
-          transactions.push(
-            ...transformTransaction(
-              createTransaction({
-                date,
-                transactionHash,
-                transactionId,
-                type: "Expense",
-                description: `Delegated ${
-                  delegatedAmount.divide(denominator).value
-                } ${asset}`,
-                feeAmount: getFees(tx),
-              })
-            )
-          );
 
           break;
         }
@@ -337,10 +370,19 @@ async function processTransaction(
                       .split(/^(\d+)(.+)/)
                       .filter((x) => x);
                     const token = await getIbcDenomination(_token);
-                    if (!tokens[token]) {
-                      tokens[token] = currency(0, { precision: 6 });
+                    if (!tokens[token.symbol]) {
+                      tokens[token.symbol] = {
+                        amount: currency(0, {
+                          precision: token.decimals,
+                        }),
+                        decimals: token.decimals,
+                      };
                     }
-                    tokens[token] = tokens[token].add(amount);
+
+                    tokens[token.symbol] = {
+                      amount: tokens[token.symbol].amount.add(amount),
+                      decimals: token.decimals,
+                    };
                   }
                 }
               }
@@ -354,7 +396,9 @@ async function processTransaction(
                   date,
                   transactionHash,
                   transactionId,
-                  receivedAmount: tokens[token].divide(denominator).value,
+                  receivedAmount: tokens[token].amount.divide(
+                    getDenominator(tokens[token].decimals)
+                  ).value,
                   receivedAsset: token,
                   type: "Staking",
                   description: `Claimed Rewards`,
@@ -365,28 +409,27 @@ async function processTransaction(
             );
           }
 
-          let redelagation = currency(0, { precision: 6 });
-          let asset = "";
-          for (const { amount: token } of msgTypeGroup[type]) {
-            asset = await getIbcDenomination(token.denom);
-            const amount = currency(token.amount, { precision: 6 }).divide(
-              denominator
+          for (const {
+            amount: { denom, amount },
+          } of msgTypeGroup[type]) {
+            const token = await getIbcDenomination(denom);
+            const redelagation = currency(amount, {
+              precision: token.decimals,
+            }).divide(getDenominator(token.decimals));
+            transactions.push(
+              ...transformTransaction(
+                createTransaction({
+                  date,
+                  transactionHash,
+                  transactionId,
+                  description: `Redelegate ${redelagation.value} ${token.symbol}`,
+                  type: "Expense",
+                  feeAmount: await getFees(tx),
+                })
+              )
             );
-            redelagation = redelagation.add(amount);
           }
 
-          transactions.push(
-            ...transformTransaction(
-              createTransaction({
-                date,
-                transactionHash,
-                transactionId,
-                description: `Redelegate ${redelagation.value} ${asset}`,
-                type: "Expense",
-                feeAmount: getFees(tx),
-              })
-            )
-          );
           break;
         }
         case "/ibc.applications.transfer.v1.MsgTransfer": {
@@ -400,26 +443,26 @@ async function processTransaction(
               timeout_height: { revision_number, revision_height },
             } = msg;
             const tokens = denom.split(",");
-            const transferAmount = currency(amount, { precision: 6 }).divide(
-              denominator
-            ).value;
 
             for (const _token of tokens) {
               const transaction = createTransaction({
                 date,
                 transactionHash,
                 transactionId,
-                feeAmount: getFees(tx),
+                feeAmount: await getFees(tx),
                 meta: `timeout_height: ${revision_number}_${revision_height}`,
               });
               const token = await getIbcDenomination(_token);
+              const transferAmount = currency(amount, {
+                precision: token.decimals,
+              }).divide(getDenominator(token.decimals)).value;
               if (sender === address) {
                 transaction.sentAmount = transferAmount;
-                transaction.sentAsset = token;
+                transaction.sentAsset = token.symbol;
                 transaction.type = "Transfer";
               } else if (receiver === address) {
                 transaction.receivedAmount = transferAmount;
-                transaction.receivedAsset = token;
+                transaction.receivedAsset = token.symbol;
                 transaction.type = "Deposit";
               }
               transactions.push(...transformTransaction(transaction));
@@ -469,8 +512,14 @@ async function processTransaction(
                 for (const msgPacket of msgPackets) {
                   const { amount, denom, receiver } =
                     msgPacket.packet["data__@parse__@transfer"];
+
                   if (receiver === address) {
                     const parts = denom.split("/");
+
+                    const token = await getIbcDenomination(
+                      parts[parts.length - 1]
+                    );
+
                     transactions.push(
                       ...transformTransaction(
                         createTransaction({
@@ -478,11 +527,9 @@ async function processTransaction(
                           transactionHash,
                           transactionId,
                           receivedAmount: currency(amount, {
-                            precision: 6,
-                          }).divide(denominator).value,
-                          receivedAsset: await getIbcDenomination(
-                            parts[parts.length - 1]
-                          ),
+                            precision: token.decimals,
+                          }).divide(getDenominator(token.decimals)).value,
+                          receivedAsset: token.symbol,
                           type: "Deposit",
                           feeAsset: "",
                         })
@@ -506,11 +553,10 @@ async function processTransaction(
             const { from_address, to_address, amount: amounts } = msg;
 
             for (const { denom, amount } of amounts) {
-              const tokenAmount = currency(amount, { precision: 6 }).divide(
-                denominator
-              ).value;
               const token = await getIbcDenomination(denom);
-
+              const tokenAmount = currency(amount, {
+                precision: token.decimals,
+              }).divide(getDenominator(token.decimals)).value;
               const transaction = createTransaction({
                 date,
                 transactionHash,
@@ -518,14 +564,14 @@ async function processTransaction(
               });
 
               if (from_address === address) {
-                transaction.feeAmount = getFees(tx);
+                transaction.feeAmount = await getFees(tx);
                 transaction.sentAmount = tokenAmount;
-                transaction.sentAsset = token;
+                transaction.sentAsset = token.symbol;
                 transaction.type = "Transfer";
                 transactions.push(...transformTransaction(transaction));
               } else if (to_address === address) {
                 transaction.receivedAmount = tokenAmount;
-                transaction.receivedAsset = token;
+                transaction.receivedAsset = token.symbol;
                 transaction.type = "Deposit";
                 transactions.push(...transformTransaction(transaction));
               }
@@ -545,14 +591,16 @@ async function processTransaction(
             } = msg;
             const feeDenom = await getIbcDenomination(offer_coin_fee.denom);
             const feeAmount = currency(offer_coin_fee.amount, {
-              precision: 6,
-            }).divide(denominator);
+              precision: feeDenom.decimals,
+            }).divide(getDenominator(feeDenom.decimals));
             const offerCoinDenom = await getIbcDenomination(offer_coin.denom);
             const offerCoinAmount = currency(offer_coin.amount, {
-              precision: 6,
-            }).divide(denominator);
+              precision: offerCoinDenom.decimals,
+            }).divide(getDenominator(offerCoinDenom.decimals));
             const demandCoinDenom = await getIbcDenomination(demand_coin_denom);
-            const demandCoinAmount = offerCoinAmount.multiply(order_price);
+            const demandCoinAmount = offerCoinAmount.multiply(order_price, {
+              precision: demandCoinDenom.decimals,
+            });
             transactions.push(
               ...transformTransaction(
                 createTransaction({
@@ -560,11 +608,11 @@ async function processTransaction(
                   transactionHash,
                   transactionId,
                   feeAmount: feeAmount.value,
-                  feeAsset: feeDenom,
+                  feeAsset: feeDenom.symbol,
                   sentAmount: offerCoinAmount.value,
-                  sentAsset: offerCoinDenom,
+                  sentAsset: offerCoinDenom.symbol,
                   receivedAmount: demandCoinAmount.value,
-                  receivedAsset: demandCoinDenom,
+                  receivedAsset: demandCoinDenom.symbol,
                   type: "Swap",
                 })
               )
@@ -585,10 +633,10 @@ async function processTransaction(
                   type: "Other",
                   description: "Withdraw from Liquidity Pool",
                   receivedAmount: currency(msg.pool_coin.amount, {
-                    precision: 6,
+                    precision,
                   }).divide(denominator).value,
                   receivedAsset: msg.pool_coin.denom,
-                  feeAmount: getFees(tx),
+                  feeAmount: await getFees(tx),
                 })
               )
             );
@@ -598,7 +646,9 @@ async function processTransaction(
         case "/tendermint.liquidity.v1beta1.MsgDepositWithinBatch": {
           processed = true;
           for (const msg of msgTypeGroup[type]) {
-            for (const token of msg.deposit_coins) {
+            for (const { denom, amount } of msg.deposit_coins) {
+              const token = await getIbcDenomination(denom);
+
               transactions.push(
                 ...transformTransaction(
                   createTransaction({
@@ -607,10 +657,10 @@ async function processTransaction(
                     transactionId,
                     description: "Deposit to Liquidity Pool",
                     type: "Other",
-                    sentAmount: currency(token.amount, { precision: 6 }).divide(
-                      denominator
-                    ).value,
-                    sentAsset: await getIbcDenomination(token.denom),
+                    sentAmount: currency(amount, {
+                      precision: token.decimals,
+                    }).divide(getDenominator(token.decimals)).value,
+                    sentAsset: token.symbol,
                   })
                 )
               );
@@ -622,7 +672,7 @@ async function processTransaction(
                   date,
                   transactionHash,
                   transactionId,
-                  feeAmount: getFees(tx),
+                  feeAmount: await getFees(tx),
                   description: "Deposit to Liquidity Pool",
                   type: "Expense",
                 })

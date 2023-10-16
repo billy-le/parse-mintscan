@@ -9,7 +9,8 @@ const csvStringify = require("csv-stringify/sync");
 const walletAddress = process.argv[2];
 if (!walletAddress) throw new Error("no wallet provided as argument");
 
-const csvFilename = "./csv/cosmos_data.csv";
+const network = "evmos";
+const csvFilename = `./csv/${network}_data.csv`;
 const timeoutFilename = "timeout_txs.txt";
 
 // fetch("https://chains.cosmos.directory/")
@@ -24,15 +25,15 @@ const timeoutFilename = "timeout_txs.txt";
 //     const d = await fs.promises.readFile("ibc-denominations.json");
 //     let denoms = JSON.parse(d.toString());
 
-//     for (const { denom, symbol, assets } of data.chains) {
+//     for (const { denom, symbol, assets, decimals } of data.chains) {
 //       if (!denoms[denom]) {
-//         denoms[denom] = symbol;
+//         denoms[denom] = { symbol, decimals };
 //       }
 
 //       if (assets) {
-//         for (const { denom, symbol } of assets) {
+//         for (const { denom, symbol, decimals } of assets) {
 //           if (!denoms[denom]) {
-//             denoms[denom] = symbol;
+//             denoms[denom] = { symbol, decimals };
 //           }
 //         }
 //       }
@@ -47,7 +48,7 @@ const timeoutFilename = "timeout_txs.txt";
 
 //     await fs.promises.writeFile(
 //       "ibc-denominations.json",
-//       JSON.stringify(denoms)
+//       JSON.stringify(denoms, null, 2)
 //     );
 //   })
 //   .catch((err) => {
@@ -66,7 +67,7 @@ const msgTypes = new Set();
 
 let txCount = 0;
 const pipeline = chain([
-  fs.createReadStream("./data/cosmos.json"),
+  fs.createReadStream(`./data/${network}.json`),
   parser(),
   streamArray(),
   async (data) => {
