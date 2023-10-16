@@ -86,6 +86,7 @@ const pipeline = chain([
 ]);
 
 pipeline.on("end", async () => {
+  console.log(msgTypes.values());
   console.log("data.csv created", `\nprocessed ${txCount} transactions`);
 
   // remove txs from timeouts and meta from csv

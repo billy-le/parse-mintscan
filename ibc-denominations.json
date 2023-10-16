@@ -1,44 +1,164 @@
 {
-  "FX": { "symbol": "FX", "decimals": 0 },
-  "aISLM": { "symbol": "ISLM", "decimals": 18 },
-  "aLYT": { "symbol": "LYT", "decimals": 18 },
-  "aMYT": { "symbol": "MYT", "decimals": 18 },
-  "aRYT": { "symbol": "RYT", "decimals": 18 },
-  "aacre": { "symbol": "ACRE", "decimals": 18 },
-  "aarch": { "symbol": "ARCH", "decimals": 18 },
-  "aave-wei": { "symbol": "AAVE", "decimals": 18 },
-  "acanto": { "symbol": "CANTO", "decimals": 18 },
-  "acudos": { "symbol": "CUDOS", "decimals": 18 },
-  "aechelon": { "symbol": "ECH", "decimals": 18 },
-  "aevmos": { "symbol": "EVMOS", "decimals": 18 },
-  "afet": { "symbol": "FET", "decimals": 18 },
-  "aheart": { "symbol": "HEART", "decimals": 18 },
-  "aimv": { "symbol": "IMV", "decimals": 18 },
-  "anom": { "symbol": "NOM", "decimals": 18 },
-  "ape-wei": { "symbol": "APE", "decimals": 18 },
-  "aplanq": { "symbol": "PLQ", "decimals": 18 },
-  "apoint": { "symbol": "POINT", "decimals": 18 },
-  "arb-wei": { "symbol": "ARB", "decimals": 18 },
-  "arebus": { "symbol": "REBUS", "decimals": 18 },
-  "ario": { "symbol": "RIO", "decimals": 18 },
-  "arkh": { "symbol": "ARKH", "decimals": 6 },
-  "arst": { "symbol": "RST", "decimals": 18 },
-  "atenet": { "symbol": "TENET", "decimals": 18 },
-  "attoaioz": { "symbol": "AIOZ", "decimals": 18 },
-  "auptick": { "symbol": "UPTICK", "decimals": 18 },
-  "avalanche-uusdc": { "symbol": "USDC", "decimals": 6 },
-  "axpla": { "symbol": "XPLA", "decimals": 18 },
-  "axs-wei": { "symbol": "AXS", "decimals": 18 },
-  "basecro": { "symbol": "CRO", "decimals": 18 },
-  "bnb.1.6.773edb": { "symbol": "BNB", "decimals": 18 },
-  "bneo.1.14.e2e5f6": { "symbol": "bNEO", "decimals": 8 },
-  "boot": { "symbol": "BOOT", "decimals": 0 },
-  "busd-wei": { "symbol": "BUSD", "decimals": 18 },
-  "busd.1.6.754a80": { "symbol": "BUSD", "decimals": 18 },
-  "cacao": { "symbol": "CACAO", "decimals": 10 },
-  "cbeth-wei": { "symbol": "cbETH", "decimals": 18 },
-  "cglp.1.19.1698d3": { "symbol": "CGLP", "decimals": 18 },
-  "cgt/1": { "symbol": "USD", "decimals": 18 },
+  "FX": {
+    "symbol": "FX",
+    "decimals": 0
+  },
+  "aISLM": {
+    "symbol": "ISLM",
+    "decimals": 18
+  },
+  "aLYT": {
+    "symbol": "LYT",
+    "decimals": 18
+  },
+  "aMYT": {
+    "symbol": "MYT",
+    "decimals": 18
+  },
+  "aRYT": {
+    "symbol": "RYT",
+    "decimals": 18
+  },
+  "aacre": {
+    "symbol": "ACRE",
+    "decimals": 18
+  },
+  "aarch": {
+    "symbol": "ARCH",
+    "decimals": 18
+  },
+  "aave-wei": {
+    "symbol": "AAVE",
+    "decimals": 18
+  },
+  "acanto": {
+    "symbol": "CANTO",
+    "decimals": 18
+  },
+  "acudos": {
+    "symbol": "CUDOS",
+    "decimals": 18
+  },
+  "aechelon": {
+    "symbol": "ECH",
+    "decimals": 18
+  },
+  "aevmos": {
+    "symbol": "EVMOS",
+    "decimals": 18
+  },
+  "afet": {
+    "symbol": "FET",
+    "decimals": 18
+  },
+  "aheart": {
+    "symbol": "HEART",
+    "decimals": 18
+  },
+  "aimv": {
+    "symbol": "IMV",
+    "decimals": 18
+  },
+  "anom": {
+    "symbol": "NOM",
+    "decimals": 18
+  },
+  "ape-wei": {
+    "symbol": "APE",
+    "decimals": 18
+  },
+  "aplanq": {
+    "symbol": "PLQ",
+    "decimals": 18
+  },
+  "apoint": {
+    "symbol": "POINT",
+    "decimals": 18
+  },
+  "arb-wei": {
+    "symbol": "ARB",
+    "decimals": 18
+  },
+  "arebus": {
+    "symbol": "REBUS",
+    "decimals": 18
+  },
+  "ario": {
+    "symbol": "RIO",
+    "decimals": 18
+  },
+  "arkh": {
+    "symbol": "ARKH",
+    "decimals": 6
+  },
+  "arst": {
+    "symbol": "RST",
+    "decimals": 18
+  },
+  "atenet": {
+    "symbol": "TENET",
+    "decimals": 18
+  },
+  "attoaioz": {
+    "symbol": "AIOZ",
+    "decimals": 18
+  },
+  "auptick": {
+    "symbol": "UPTICK",
+    "decimals": 18
+  },
+  "avalanche-uusdc": {
+    "symbol": "USDC",
+    "decimals": 6
+  },
+  "axpla": {
+    "symbol": "XPLA",
+    "decimals": 18
+  },
+  "axs-wei": {
+    "symbol": "AXS",
+    "decimals": 18
+  },
+  "basecro": {
+    "symbol": "CRO",
+    "decimals": 18
+  },
+  "bnb.1.6.773edb": {
+    "symbol": "BNB",
+    "decimals": 18
+  },
+  "bneo.1.14.e2e5f6": {
+    "symbol": "bNEO",
+    "decimals": 8
+  },
+  "boot": {
+    "symbol": "BOOT",
+    "decimals": 0
+  },
+  "busd-wei": {
+    "symbol": "BUSD",
+    "decimals": 18
+  },
+  "busd.1.6.754a80": {
+    "symbol": "BUSD",
+    "decimals": 18
+  },
+  "cacao": {
+    "symbol": "CACAO",
+    "decimals": 10
+  },
+  "cbeth-wei": {
+    "symbol": "cbETH",
+    "decimals": 18
+  },
+  "cglp.1.19.1698d3": {
+    "symbol": "CGLP",
+    "decimals": 18
+  },
+  "cgt/1": {
+    "symbol": "USD",
+    "decimals": 18
+  },
   "cw20:archway1fwurjg7ah4v7hhs6xsc3wutqpvmahrfhns285s0lt34tgfdhplxq6m8xg5": {
     "symbol": "ampARCH",
     "decimals": 6
@@ -1103,15 +1223,42 @@
     "symbol": "bPsiDP-24m",
     "decimals": 6
   },
-  "dai-wei": { "symbol": "DAI", "decimals": 18 },
-  "dot-planck": { "symbol": "DOT", "decimals": 10 },
-  "dys": { "symbol": "DYS", "decimals": 0 },
-  "echf": { "symbol": "ECHF", "decimals": 6 },
-  "eco.uC.NCT": { "symbol": "NCT", "decimals": 6 },
-  "edkk": { "symbol": "EDKK", "decimals": 6 },
-  "eeur": { "symbol": "EEUR", "decimals": 6 },
-  "el1": { "symbol": "L1", "decimals": 18 },
-  "enok": { "symbol": "ENOK", "decimals": 6 },
+  "dai-wei": {
+    "symbol": "DAI",
+    "decimals": 18
+  },
+  "dot-planck": {
+    "symbol": "DOT",
+    "decimals": 10
+  },
+  "dys": {
+    "symbol": "DYS",
+    "decimals": 0
+  },
+  "echf": {
+    "symbol": "ECHF",
+    "decimals": 6
+  },
+  "eco.uC.NCT": {
+    "symbol": "NCT",
+    "decimals": 6
+  },
+  "edkk": {
+    "symbol": "EDKK",
+    "decimals": 6
+  },
+  "eeur": {
+    "symbol": "EEUR",
+    "decimals": 6
+  },
+  "el1": {
+    "symbol": "L1",
+    "decimals": 18
+  },
+  "enok": {
+    "symbol": "ENOK",
+    "decimals": 6
+  },
   "erc20/0x2Cbea61fdfDFA520Ee99700F104D5b75ADf50B0c": {
     "symbol": "arUSD",
     "decimals": 18
@@ -1124,10 +1271,22 @@
     "symbol": "CNTO",
     "decimals": 18
   },
-  "erc20/tether/usdt": { "symbol": "USDT", "decimals": 6 },
-  "esek": { "symbol": "ESEK", "decimals": 6 },
-  "eth.1.19.c3b805": { "symbol": "ETH", "decimals": 18 },
-  "eth.1.2.942d87": { "symbol": "ETH", "decimals": 18 },
+  "erc20/tether/usdt": {
+    "symbol": "USDT",
+    "decimals": 6
+  },
+  "esek": {
+    "symbol": "ESEK",
+    "decimals": 6
+  },
+  "eth.1.19.c3b805": {
+    "symbol": "ETH",
+    "decimals": 18
+  },
+  "eth.1.2.942d87": {
+    "symbol": "ETH",
+    "decimals": 18
+  },
   "factory/juno1qly4zcmzr2gyxtze5yt9chv2srczwwunppxjfh/NEXX": {
     "symbol": "NEXX",
     "decimals": 6
@@ -1256,7 +1415,10 @@
     "symbol": "USDC",
     "decimals": 6
   },
-  "frax-wei": { "symbol": "FRAX", "decimals": 18 },
+  "frax-wei": {
+    "symbol": "FRAX",
+    "decimals": 18
+  },
   "ft24C9FA4F10B0F235F4A815B15FC774E046A2B2EB": {
     "symbol": "LOBO",
     "decimals": 6
@@ -1341,8 +1503,14 @@
     "symbol": "PSTAKE",
     "decimals": 18
   },
-  "hard": { "symbol": "HARD", "decimals": 6 },
-  "hydrogen": { "symbol": "HYDROGEN", "decimals": 0 },
+  "hard": {
+    "symbol": "HARD",
+    "decimals": 6
+  },
+  "hydrogen": {
+    "symbol": "HYDROGEN",
+    "decimals": 0
+  },
   "ibc/0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B": {
     "symbol": "OSMO",
     "decimals": 6
@@ -1551,197 +1719,770 @@
     "symbol": "CNTO",
     "decimals": 18
   },
-  "idep": { "symbol": "IDEP", "decimals": 6 },
-  "inj": { "symbol": "INJ", "decimals": 18 },
-  "jinx": { "symbol": "JINX", "decimals": 6 },
-  "jinxy": { "symbol": "JINXy", "decimals": 6 },
-  "link-wei": { "symbol": "LINK", "decimals": 18 },
-  "loki": { "symbol": "ODIN", "decimals": 6 },
-  "mGeo": { "symbol": "GEO", "decimals": 6 },
-  "mO9W": { "symbol": "O9W", "decimals": 6 },
-  "maya": { "symbol": "MAYA", "decimals": 4 },
-  "mkr-wei": { "symbol": "MKR", "decimals": 18 },
-  "nanolike": { "symbol": "LIKE", "decimals": 9 },
-  "nanomobx": { "symbol": "MOBX", "decimals": 9 },
-  "ncheq": { "symbol": "CHEQ", "decimals": 9 },
-  "nhash": { "symbol": "HASH", "decimals": 9 },
-  "nshr": { "symbol": "SHR", "decimals": 9 },
-  "nund": { "symbol": "FUND", "decimals": 9 },
-  "orai": { "symbol": "ORAI", "decimals": 6 },
-  "peaka": { "symbol": "DORA", "decimals": 18 },
-  "pepe-wei": { "symbol": "PEPE", "decimals": 18 },
-  "polygon-uusdc": { "symbol": "USDC", "decimals": 6 },
-  "ppica": { "symbol": "PICA", "decimals": 12 },
-  "rai-wei": { "symbol": "RAI", "decimals": 18 },
-  "reth-wei": { "symbol": "rETH", "decimals": 18 },
-  "rowan": { "symbol": "ROWAN", "decimals": 18 },
-  "sfrxeth-wei": { "symbol": "sfrxETH", "decimals": 18 },
-  "shib-wei": { "symbol": "SHIB", "decimals": 18 },
-  "staevmos": { "symbol": "stEVMOS", "decimals": 18 },
-  "steth-wei": { "symbol": "stETH", "decimals": 18 },
-  "stinj": { "symbol": "stINJ", "decimals": 18 },
-  "stk/uatom": { "symbol": "stkATOM", "decimals": 6 },
-  "stuatom": { "symbol": "stATOM", "decimals": 6 },
-  "stucmdx": { "symbol": "stCMDX", "decimals": 6 },
-  "stujuno": { "symbol": "stJUNO", "decimals": 6 },
-  "stuluna": { "symbol": "stLUNA", "decimals": 6 },
-  "stuosmo": { "symbol": "stOSMO", "decimals": 6 },
-  "stusomm": { "symbol": "stSOMM", "decimals": 6 },
-  "stustars": { "symbol": "stSTARS", "decimals": 6 },
-  "stuumee": { "symbol": "stUMEE", "decimals": 6 },
-  "swp": { "symbol": "SWP", "decimals": 6 },
-  "swth": { "symbol": "SWTH", "decimals": 8 },
-  "uakt": { "symbol": "AKT", "decimals": 6 },
-  "uatolo": { "symbol": "ATOLO", "decimals": 6 },
-  "uatom": { "symbol": "ATOM", "decimals": 6 },
-  "uaud": { "symbol": "AUTC", "decimals": 6 },
-  "uaura": { "symbol": "AURA", "decimals": 6 },
-  "uaxl": { "symbol": "AXL", "decimals": 6 },
-  "uband": { "symbol": "BAND", "decimals": 6 },
-  "ubcna": { "symbol": "BCNA", "decimals": 6 },
-  "ubcre": { "symbol": "bCRE", "decimals": 6 },
-  "ubld": { "symbol": "BLD", "decimals": 6 },
-  "ubnt": { "symbol": "BLZ", "decimals": 6 },
-  "ubtsg": { "symbol": "BTSG", "decimals": 6 },
-  "ubze": { "symbol": "BZE", "decimals": 6 },
-  "uc4e": { "symbol": "C4E", "decimals": 6 },
-  "ucad": { "symbol": "CATC", "decimals": 6 },
-  "uccc": { "symbol": "CCC", "decimals": 6 },
-  "ucgas": { "symbol": "CGAS", "decimals": 6 },
-  "uchf": { "symbol": "CHTC", "decimals": 6 },
-  "ucht": { "symbol": "CHT", "decimals": 6 },
-  "ucmba": { "symbol": "CMBA", "decimals": 6 },
-  "ucmdx": { "symbol": "CMDX", "decimals": 6 },
-  "ucmst": { "symbol": "CMST", "decimals": 6 },
-  "ucny": { "symbol": "CNTC", "decimals": 6 },
-  "ucommercio": { "symbol": "COM", "decimals": 6 },
-  "ucore": { "symbol": "CORE", "decimals": 6 },
-  "ucrbrus": { "symbol": "CRBRUS", "decimals": 6 },
-  "ucre": { "symbol": "CRE", "decimals": 6 },
-  "uctk": { "symbol": "CTK", "decimals": 6 },
-  "udarc": { "symbol": "DARC", "decimals": 6 },
-  "udec": { "symbol": "DEC", "decimals": 6 },
-  "udig": { "symbol": "DIG", "decimals": 6 },
-  "udkk": { "symbol": "DKTC", "decimals": 6 },
-  "udsm": { "symbol": "DSM", "decimals": 6 },
-  "udvpn": { "symbol": "DVPN", "decimals": 6 },
-  "uebl": { "symbol": "EBL", "decimals": 6 },
-  "uelt": { "symbol": "ELT", "decimals": 6 },
-  "ueur": { "symbol": "EUTC", "decimals": 6 },
-  "ufct": { "symbol": "FCT", "decimals": 6 },
-  "ufis": { "symbol": "FIS", "decimals": 6 },
-  "uflix": { "symbol": "FLIX", "decimals": 6 },
-  "ufrienzies": { "symbol": "FRNZ", "decimals": 6 },
-  "ufury": { "symbol": "FURY", "decimals": 6 },
-  "ug4": { "symbol": "G4", "decimals": 6 },
-  "ugbp": { "symbol": "GBTC", "decimals": 6 },
-  "uglx": { "symbol": "GLX", "decimals": 6 },
-  "ugraviton": { "symbol": "GRAV", "decimals": 6 },
-  "uguu": { "symbol": "GUU", "decimals": 6 },
-  "uharbor": { "symbol": "HARBOR", "decimals": 6 },
-  "uhkd": { "symbol": "HKTC", "decimals": 6 },
-  "uhuahua": { "symbol": "HUAHUA", "decimals": 6 },
-  "uidr": { "symbol": "IDTC", "decimals": 6 },
-  "uinr": { "symbol": "INTC", "decimals": 6 },
-  "uion": { "symbol": "ION", "decimals": 6 },
-  "uiov": { "symbol": "IOV", "decimals": 6 },
-  "uiris": { "symbol": "IRIS", "decimals": 6 },
-  "uist": { "symbol": "IST", "decimals": 6 },
-  "uixo": { "symbol": "IXO", "decimals": 6 },
-  "ujkl": { "symbol": "JKL", "decimals": 6 },
-  "ujpy": { "symbol": "JPTC", "decimals": 6 },
-  "ujuno": { "symbol": "JUNO", "decimals": 6 },
-  "ukava": { "symbol": "KAVA", "decimals": 6 },
-  "ukrw": { "symbol": "KRTC", "decimals": 6 },
-  "ukuji": { "symbol": "KUJI", "decimals": 6 },
-  "ukyve": { "symbol": "KYVE", "decimals": 6 },
-  "ulamb": { "symbol": "LAMB", "decimals": 18 },
-  "ulore": { "symbol": "LORE", "decimals": 6 },
-  "ulum": { "symbol": "LUM", "decimals": 6 },
-  "ulumen": { "symbol": "LUMEN", "decimals": 6 },
-  "uluna": { "symbol": "LUNC", "decimals": 6 },
-  "ulyl": { "symbol": "LYL", "decimals": 6 },
-  "umars": { "symbol": "MARS", "decimals": 6 },
-  "umed": { "symbol": "MED", "decimals": 6 },
-  "umedas": { "symbol": "MEDAS", "decimals": 6 },
-  "umeme": { "symbol": "MEME", "decimals": 6 },
-  "umis": { "symbol": "MIS", "decimals": 6 },
-  "umnt": { "symbol": "MNTC", "decimals": 6 },
-  "umntl": { "symbol": "MNTL", "decimals": 6 },
-  "umpwr": { "symbol": "MPWR", "decimals": 6 },
-  "umun": { "symbol": "MUN", "decimals": 6 },
-  "umyr": { "symbol": "MYTC", "decimals": 6 },
-  "undefined": { "symbol": "BANANA", "decimals": 6 },
-  "ungm": { "symbol": "NGM", "decimals": 6 },
-  "uni-wei": { "symbol": "UNI", "decimals": 18 },
-  "unls": { "symbol": "NLS", "decimals": 6 },
-  "unois": { "symbol": "NOIS", "decimals": 6 },
-  "unok": { "symbol": "NOTC", "decimals": 6 },
-  "unom": { "symbol": "NOM", "decimals": 6 },
-  "untrn": { "symbol": "NTRN", "decimals": 6 },
-  "unym": { "symbol": "NYM", "decimals": 6 },
-  "unyx": { "symbol": "NYX", "decimals": 6 },
-  "uocta": { "symbol": "OCTA", "decimals": 6 },
-  "uosmo": { "symbol": "OSMO", "decimals": 6 },
-  "upasg": { "symbol": "PASG", "decimals": 6 },
-  "uphp": { "symbol": "PHTC", "decimals": 6 },
-  "uqatom": { "symbol": "qATOM", "decimals": 6 },
-  "uqck": { "symbol": "QCK", "decimals": 6 },
-  "uqosmo": { "symbol": "qOSMO", "decimals": 6 },
-  "uqregen": { "symbol": "qREGEN", "decimals": 6 },
-  "uqsomm": { "symbol": "qSOMM", "decimals": 6 },
-  "uqsr": { "symbol": "QSR", "decimals": 6 },
-  "uqstars": { "symbol": "qSTARS", "decimals": 6 },
-  "uqwoyn": { "symbol": "QWOYN", "decimals": 6 },
-  "uratom": { "symbol": "rATOM", "decimals": 6 },
-  "uregen": { "symbol": "REGEN", "decimals": 6 },
-  "urhuahua": { "symbol": "rHUAHUA", "decimals": 6 },
-  "uriris": { "symbol": "rIRIS", "decimals": 6 },
-  "urswth": { "symbol": "rSWTH", "decimals": 8 },
-  "usc": { "symbol": "USC", "decimals": 8 },
-  "uscrt": { "symbol": "SCRT", "decimals": 6 },
-  "usdc.1.2.343151": { "symbol": "USDC", "decimals": 6 },
-  "usdc.1.6.53ff75": { "symbol": "USDC", "decimals": 18 },
-  "usdr": { "symbol": "SDTC", "decimals": 6 },
-  "usdx": { "symbol": "USDX", "decimals": 6 },
-  "usei": { "symbol": "SEI", "decimals": 6 },
-  "usek": { "symbol": "SETC", "decimals": 6 },
-  "usgd": { "symbol": "SGTC", "decimals": 6 },
-  "usge": { "symbol": "SGE", "decimals": 6 },
-  "usomm": { "symbol": "SOMM", "decimals": 6 },
-  "ustake": { "symbol": "STAKE", "decimals": 6 },
-  "ustars": { "symbol": "STARS", "decimals": 6 },
-  "ustrd": { "symbol": "STRD", "decimals": 6 },
-  "uterp": { "symbol": "TERP", "decimals": 6 },
-  "utest": { "symbol": "TEST", "decimals": 6 },
-  "utgd": { "symbol": "TGD", "decimals": 6 },
-  "uthb": { "symbol": "THTC", "decimals": 6 },
-  "uthiol": { "symbol": "THIOL", "decimals": 6 },
-  "utick": { "symbol": "TICK", "decimals": 6 },
-  "utori": { "symbol": "TORI", "decimals": 6 },
-  "utwd": { "symbol": "TWTC", "decimals": 6 },
-  "uumee": { "symbol": "UMEE", "decimals": 6 },
-  "uusd": { "symbol": "USTC", "decimals": 6 },
-  "uusdc": { "symbol": "USDC", "decimals": 6 },
-  "uusdt": { "symbol": "USDT", "decimals": 6 },
-  "uvdl": { "symbol": "VDL", "decimals": 6 },
-  "uwhale": { "symbol": "WHALE", "decimals": 6 },
-  "uworm": { "symbol": "WORM", "decimals": 6 },
-  "uxki": { "symbol": "XKI", "decimals": 6 },
-  "uxprt": { "symbol": "XPRT", "decimals": 6 },
-  "wavax-wei": { "symbol": "WAVAX", "decimals": 18 },
-  "wbnb-wei": { "symbol": "WBNB", "decimals": 18 },
-  "wbtc-satoshi": { "symbol": "WBTC", "decimals": 8 },
-  "wei": { "symbol": "OKT", "decimals": 18 },
-  "weth-wei": { "symbol": "WETH", "decimals": 18 },
-  "wfil-wei": { "symbol": "axlFIL", "decimals": 18 },
-  "wftm-wei": { "symbol": "WFTM", "decimals": 18 },
-  "wglmr-wei": { "symbol": "WGLMR", "decimals": 18 },
-  "wmatic-wei": { "symbol": "WMATIC", "decimals": 18 },
-  "wsteth-wei": { "symbol": "wstETH", "decimals": 18 },
-  "xcn-wei": { "symbol": "XCN", "decimals": 18 },
-  "yieldeth-wei": { "symbol": "YieldETH", "decimals": 18 },
-  "zil.1.18.1a4a06": { "symbol": "ZIL", "decimals": 12 },
+  "idep": {
+    "symbol": "IDEP",
+    "decimals": 6
+  },
+  "inj": {
+    "symbol": "INJ",
+    "decimals": 18
+  },
+  "jinx": {
+    "symbol": "JINX",
+    "decimals": 6
+  },
+  "jinxy": {
+    "symbol": "JINXy",
+    "decimals": 6
+  },
+  "link-wei": {
+    "symbol": "LINK",
+    "decimals": 18
+  },
+  "loki": {
+    "symbol": "ODIN",
+    "decimals": 6
+  },
+  "mGeo": {
+    "symbol": "GEO",
+    "decimals": 6
+  },
+  "mO9W": {
+    "symbol": "O9W",
+    "decimals": 6
+  },
+  "maya": {
+    "symbol": "MAYA",
+    "decimals": 4
+  },
+  "mkr-wei": {
+    "symbol": "MKR",
+    "decimals": 18
+  },
+  "nanolike": {
+    "symbol": "LIKE",
+    "decimals": 9
+  },
+  "nanomobx": {
+    "symbol": "MOBX",
+    "decimals": 9
+  },
+  "ncheq": {
+    "symbol": "CHEQ",
+    "decimals": 9
+  },
+  "nhash": {
+    "symbol": "HASH",
+    "decimals": 9
+  },
+  "nshr": {
+    "symbol": "SHR",
+    "decimals": 9
+  },
+  "nund": {
+    "symbol": "FUND",
+    "decimals": 9
+  },
+  "orai": {
+    "symbol": "ORAI",
+    "decimals": 6
+  },
+  "peaka": {
+    "symbol": "DORA",
+    "decimals": 18
+  },
+  "pepe-wei": {
+    "symbol": "PEPE",
+    "decimals": 18
+  },
+  "polygon-uusdc": {
+    "symbol": "USDC",
+    "decimals": 6
+  },
+  "ppica": {
+    "symbol": "PICA",
+    "decimals": 12
+  },
+  "rai-wei": {
+    "symbol": "RAI",
+    "decimals": 18
+  },
+  "reth-wei": {
+    "symbol": "rETH",
+    "decimals": 18
+  },
+  "rowan": {
+    "symbol": "ROWAN",
+    "decimals": 18
+  },
+  "sfrxeth-wei": {
+    "symbol": "sfrxETH",
+    "decimals": 18
+  },
+  "shib-wei": {
+    "symbol": "SHIB",
+    "decimals": 18
+  },
+  "staevmos": {
+    "symbol": "stEVMOS",
+    "decimals": 18
+  },
+  "steth-wei": {
+    "symbol": "stETH",
+    "decimals": 18
+  },
+  "stinj": {
+    "symbol": "stINJ",
+    "decimals": 18
+  },
+  "stk/uatom": {
+    "symbol": "stkATOM",
+    "decimals": 6
+  },
+  "stuatom": {
+    "symbol": "stATOM",
+    "decimals": 6
+  },
+  "stucmdx": {
+    "symbol": "stCMDX",
+    "decimals": 6
+  },
+  "stujuno": {
+    "symbol": "stJUNO",
+    "decimals": 6
+  },
+  "stuluna": {
+    "symbol": "stLUNA",
+    "decimals": 6
+  },
+  "stuosmo": {
+    "symbol": "stOSMO",
+    "decimals": 6
+  },
+  "stusomm": {
+    "symbol": "stSOMM",
+    "decimals": 6
+  },
+  "stustars": {
+    "symbol": "stSTARS",
+    "decimals": 6
+  },
+  "stuumee": {
+    "symbol": "stUMEE",
+    "decimals": 6
+  },
+  "swp": {
+    "symbol": "SWP",
+    "decimals": 6
+  },
+  "swth": {
+    "symbol": "SWTH",
+    "decimals": 8
+  },
+  "uakt": {
+    "symbol": "AKT",
+    "decimals": 6
+  },
+  "uatolo": {
+    "symbol": "ATOLO",
+    "decimals": 6
+  },
+  "uatom": {
+    "symbol": "ATOM",
+    "decimals": 6
+  },
+  "uaud": {
+    "symbol": "AUTC",
+    "decimals": 6
+  },
+  "uaura": {
+    "symbol": "AURA",
+    "decimals": 6
+  },
+  "uaxl": {
+    "symbol": "AXL",
+    "decimals": 6
+  },
+  "uband": {
+    "symbol": "BAND",
+    "decimals": 6
+  },
+  "ubcna": {
+    "symbol": "BCNA",
+    "decimals": 6
+  },
+  "ubcre": {
+    "symbol": "bCRE",
+    "decimals": 6
+  },
+  "ubld": {
+    "symbol": "BLD",
+    "decimals": 6
+  },
+  "ubnt": {
+    "symbol": "BLZ",
+    "decimals": 6
+  },
+  "ubtsg": {
+    "symbol": "BTSG",
+    "decimals": 6
+  },
+  "ubze": {
+    "symbol": "BZE",
+    "decimals": 6
+  },
+  "uc4e": {
+    "symbol": "C4E",
+    "decimals": 6
+  },
+  "ucad": {
+    "symbol": "CATC",
+    "decimals": 6
+  },
+  "uccc": {
+    "symbol": "CCC",
+    "decimals": 6
+  },
+  "ucgas": {
+    "symbol": "CGAS",
+    "decimals": 6
+  },
+  "uchf": {
+    "symbol": "CHTC",
+    "decimals": 6
+  },
+  "ucht": {
+    "symbol": "CHT",
+    "decimals": 6
+  },
+  "ucmba": {
+    "symbol": "CMBA",
+    "decimals": 6
+  },
+  "ucmdx": {
+    "symbol": "CMDX",
+    "decimals": 6
+  },
+  "ucmst": {
+    "symbol": "CMST",
+    "decimals": 6
+  },
+  "ucny": {
+    "symbol": "CNTC",
+    "decimals": 6
+  },
+  "ucommercio": {
+    "symbol": "COM",
+    "decimals": 6
+  },
+  "ucore": {
+    "symbol": "CORE",
+    "decimals": 6
+  },
+  "ucrbrus": {
+    "symbol": "CRBRUS",
+    "decimals": 6
+  },
+  "ucre": {
+    "symbol": "CRE",
+    "decimals": 6
+  },
+  "uctk": {
+    "symbol": "CTK",
+    "decimals": 6
+  },
+  "udarc": {
+    "symbol": "DARC",
+    "decimals": 6
+  },
+  "udec": {
+    "symbol": "DEC",
+    "decimals": 6
+  },
+  "udig": {
+    "symbol": "DIG",
+    "decimals": 6
+  },
+  "udkk": {
+    "symbol": "DKTC",
+    "decimals": 6
+  },
+  "udsm": {
+    "symbol": "DSM",
+    "decimals": 6
+  },
+  "udvpn": {
+    "symbol": "DVPN",
+    "decimals": 6
+  },
+  "uebl": {
+    "symbol": "EBL",
+    "decimals": 6
+  },
+  "uelt": {
+    "symbol": "ELT",
+    "decimals": 6
+  },
+  "ueur": {
+    "symbol": "EUTC",
+    "decimals": 6
+  },
+  "ufct": {
+    "symbol": "FCT",
+    "decimals": 6
+  },
+  "ufis": {
+    "symbol": "FIS",
+    "decimals": 6
+  },
+  "uflix": {
+    "symbol": "FLIX",
+    "decimals": 6
+  },
+  "ufrienzies": {
+    "symbol": "FRNZ",
+    "decimals": 6
+  },
+  "ufury": {
+    "symbol": "FURY",
+    "decimals": 6
+  },
+  "ug4": {
+    "symbol": "G4",
+    "decimals": 6
+  },
+  "ugbp": {
+    "symbol": "GBTC",
+    "decimals": 6
+  },
+  "uglx": {
+    "symbol": "GLX",
+    "decimals": 6
+  },
+  "ugraviton": {
+    "symbol": "GRAV",
+    "decimals": 6
+  },
+  "uguu": {
+    "symbol": "GUU",
+    "decimals": 6
+  },
+  "uharbor": {
+    "symbol": "HARBOR",
+    "decimals": 6
+  },
+  "uhkd": {
+    "symbol": "HKTC",
+    "decimals": 6
+  },
+  "uhuahua": {
+    "symbol": "HUAHUA",
+    "decimals": 6
+  },
+  "uidr": {
+    "symbol": "IDTC",
+    "decimals": 6
+  },
+  "uinr": {
+    "symbol": "INTC",
+    "decimals": 6
+  },
+  "uion": {
+    "symbol": "ION",
+    "decimals": 6
+  },
+  "uiov": {
+    "symbol": "IOV",
+    "decimals": 6
+  },
+  "uiris": {
+    "symbol": "IRIS",
+    "decimals": 6
+  },
+  "uist": {
+    "symbol": "IST",
+    "decimals": 6
+  },
+  "uixo": {
+    "symbol": "IXO",
+    "decimals": 6
+  },
+  "ujkl": {
+    "symbol": "JKL",
+    "decimals": 6
+  },
+  "ujpy": {
+    "symbol": "JPTC",
+    "decimals": 6
+  },
+  "ujuno": {
+    "symbol": "JUNO",
+    "decimals": 6
+  },
+  "ukava": {
+    "symbol": "KAVA",
+    "decimals": 6
+  },
+  "ukrw": {
+    "symbol": "KRTC",
+    "decimals": 6
+  },
+  "ukuji": {
+    "symbol": "KUJI",
+    "decimals": 6
+  },
+  "ukyve": {
+    "symbol": "KYVE",
+    "decimals": 6
+  },
+  "ulamb": {
+    "symbol": "LAMB",
+    "decimals": 18
+  },
+  "ulore": {
+    "symbol": "LORE",
+    "decimals": 6
+  },
+  "ulum": {
+    "symbol": "LUM",
+    "decimals": 6
+  },
+  "ulumen": {
+    "symbol": "LUMEN",
+    "decimals": 6
+  },
+  "uluna": {
+    "symbol": "LUNC",
+    "decimals": 6
+  },
+  "ulyl": {
+    "symbol": "LYL",
+    "decimals": 6
+  },
+  "umars": {
+    "symbol": "MARS",
+    "decimals": 6
+  },
+  "umed": {
+    "symbol": "MED",
+    "decimals": 6
+  },
+  "umedas": {
+    "symbol": "MEDAS",
+    "decimals": 6
+  },
+  "umeme": {
+    "symbol": "MEME",
+    "decimals": 6
+  },
+  "umis": {
+    "symbol": "MIS",
+    "decimals": 6
+  },
+  "umnt": {
+    "symbol": "MNTC",
+    "decimals": 6
+  },
+  "umntl": {
+    "symbol": "MNTL",
+    "decimals": 6
+  },
+  "umpwr": {
+    "symbol": "MPWR",
+    "decimals": 6
+  },
+  "umun": {
+    "symbol": "MUN",
+    "decimals": 6
+  },
+  "umyr": {
+    "symbol": "MYTC",
+    "decimals": 6
+  },
+  "undefined": {
+    "symbol": "BANANA",
+    "decimals": 6
+  },
+  "ungm": {
+    "symbol": "NGM",
+    "decimals": 6
+  },
+  "uni-wei": {
+    "symbol": "UNI",
+    "decimals": 18
+  },
+  "unls": {
+    "symbol": "NLS",
+    "decimals": 6
+  },
+  "unois": {
+    "symbol": "NOIS",
+    "decimals": 6
+  },
+  "unok": {
+    "symbol": "NOTC",
+    "decimals": 6
+  },
+  "unom": {
+    "symbol": "NOM",
+    "decimals": 6
+  },
+  "untrn": {
+    "symbol": "NTRN",
+    "decimals": 6
+  },
+  "unym": {
+    "symbol": "NYM",
+    "decimals": 6
+  },
+  "unyx": {
+    "symbol": "NYX",
+    "decimals": 6
+  },
+  "uocta": {
+    "symbol": "OCTA",
+    "decimals": 6
+  },
+  "uosmo": {
+    "symbol": "OSMO",
+    "decimals": 6
+  },
+  "upasg": {
+    "symbol": "PASG",
+    "decimals": 6
+  },
+  "uphp": {
+    "symbol": "PHTC",
+    "decimals": 6
+  },
+  "uqatom": {
+    "symbol": "qATOM",
+    "decimals": 6
+  },
+  "uqck": {
+    "symbol": "QCK",
+    "decimals": 6
+  },
+  "uqosmo": {
+    "symbol": "qOSMO",
+    "decimals": 6
+  },
+  "uqregen": {
+    "symbol": "qREGEN",
+    "decimals": 6
+  },
+  "uqsomm": {
+    "symbol": "qSOMM",
+    "decimals": 6
+  },
+  "uqsr": {
+    "symbol": "QSR",
+    "decimals": 6
+  },
+  "uqstars": {
+    "symbol": "qSTARS",
+    "decimals": 6
+  },
+  "uqwoyn": {
+    "symbol": "QWOYN",
+    "decimals": 6
+  },
+  "uratom": {
+    "symbol": "rATOM",
+    "decimals": 6
+  },
+  "uregen": {
+    "symbol": "REGEN",
+    "decimals": 6
+  },
+  "urhuahua": {
+    "symbol": "rHUAHUA",
+    "decimals": 6
+  },
+  "uriris": {
+    "symbol": "rIRIS",
+    "decimals": 6
+  },
+  "urswth": {
+    "symbol": "rSWTH",
+    "decimals": 8
+  },
+  "usc": {
+    "symbol": "USC",
+    "decimals": 8
+  },
+  "uscrt": {
+    "symbol": "SCRT",
+    "decimals": 6
+  },
+  "usdc.1.2.343151": {
+    "symbol": "USDC",
+    "decimals": 6
+  },
+  "usdc.1.6.53ff75": {
+    "symbol": "USDC",
+    "decimals": 18
+  },
+  "usdr": {
+    "symbol": "SDTC",
+    "decimals": 6
+  },
+  "usdx": {
+    "symbol": "USDX",
+    "decimals": 6
+  },
+  "usei": {
+    "symbol": "SEI",
+    "decimals": 6
+  },
+  "usek": {
+    "symbol": "SETC",
+    "decimals": 6
+  },
+  "usgd": {
+    "symbol": "SGTC",
+    "decimals": 6
+  },
+  "usge": {
+    "symbol": "SGE",
+    "decimals": 6
+  },
+  "usomm": {
+    "symbol": "SOMM",
+    "decimals": 6
+  },
+  "ustake": {
+    "symbol": "STAKE",
+    "decimals": 6
+  },
+  "ustars": {
+    "symbol": "STARS",
+    "decimals": 6
+  },
+  "ustrd": {
+    "symbol": "STRD",
+    "decimals": 6
+  },
+  "uterp": {
+    "symbol": "TERP",
+    "decimals": 6
+  },
+  "utest": {
+    "symbol": "TEST",
+    "decimals": 6
+  },
+  "utgd": {
+    "symbol": "TGD",
+    "decimals": 6
+  },
+  "uthb": {
+    "symbol": "THTC",
+    "decimals": 6
+  },
+  "uthiol": {
+    "symbol": "THIOL",
+    "decimals": 6
+  },
+  "utick": {
+    "symbol": "TICK",
+    "decimals": 6
+  },
+  "utori": {
+    "symbol": "TORI",
+    "decimals": 6
+  },
+  "utwd": {
+    "symbol": "TWTC",
+    "decimals": 6
+  },
+  "uumee": {
+    "symbol": "UMEE",
+    "decimals": 6
+  },
+  "uusd": {
+    "symbol": "USTC",
+    "decimals": 6
+  },
+  "uusdc": {
+    "symbol": "USDC",
+    "decimals": 6
+  },
+  "uusdt": {
+    "symbol": "USDT",
+    "decimals": 6
+  },
+  "uvdl": {
+    "symbol": "VDL",
+    "decimals": 6
+  },
+  "uwhale": {
+    "symbol": "WHALE",
+    "decimals": 6
+  },
+  "uworm": {
+    "symbol": "WORM",
+    "decimals": 6
+  },
+  "uxki": {
+    "symbol": "XKI",
+    "decimals": 6
+  },
+  "uxprt": {
+    "symbol": "XPRT",
+    "decimals": 6
+  },
+  "wavax-wei": {
+    "symbol": "WAVAX",
+    "decimals": 18
+  },
+  "wbnb-wei": {
+    "symbol": "WBNB",
+    "decimals": 18
+  },
+  "wbtc-satoshi": {
+    "symbol": "WBTC",
+    "decimals": 8
+  },
+  "wei": {
+    "symbol": "OKT",
+    "decimals": 18
+  },
+  "weth-wei": {
+    "symbol": "WETH",
+    "decimals": 18
+  },
+  "wfil-wei": {
+    "symbol": "axlFIL",
+    "decimals": 18
+  },
+  "wftm-wei": {
+    "symbol": "WFTM",
+    "decimals": 18
+  },
+  "wglmr-wei": {
+    "symbol": "WGLMR",
+    "decimals": 18
+  },
+  "wmatic-wei": {
+    "symbol": "WMATIC",
+    "decimals": 18
+  },
+  "wsteth-wei": {
+    "symbol": "wstETH",
+    "decimals": 18
+  },
+  "xcn-wei": {
+    "symbol": "XCN",
+    "decimals": 18
+  },
+  "yieldeth-wei": {
+    "symbol": "YieldETH",
+    "decimals": 18
+  },
+  "zil.1.18.1a4a06": {
+    "symbol": "ZIL",
+    "decimals": 12
+  },
   "ibc/0025F8A87464A471E66B234C4F93AEC5B4DA3D42D7986451A059273426290DD5": {
     "symbol": "NTRN",
     "decimals": 6
@@ -1772,6 +2513,42 @@
   },
   "ibc/14F9BC3E44B8A9C1BE1FB08980FAB87034C9905EF17CF2F5008FC085218811CC": {
     "symbol": "OSMO",
+    "decimals": 6
+  },
+  "ibc/D38BB3DD46864694F009AF01DA5A815B3A875F8CC52FF5679BFFCC35DC7451D5": {
+    "symbol": "CNTO",
+    "decimals": 18
+  },
+  "ibc/987C17B11ABC2B20019178ACE62929FE9840202CE79498E29FE8E5CB02B7C0A4": {
+    "symbol": "STARS",
+    "decimals": 6
+  },
+  "ibc/0954E1C28EB7AF5B72D24F3BC2B47BBB2FDF91BDDFD57B74B99E133AED40972A": {
+    "symbol": "SCRT",
+    "decimals": 6
+  },
+  "ibc/46B44899322F3CD854D2D46DEEF881958467CDD4B3B10086DA49296BBED94BED": {
+    "symbol": "JUNO",
+    "decimals": 6
+  },
+  "ibc/B9E0A1A524E98BB407D3CED8720EFEFD186002F90C1B1B7964811DD0CCC12228": {
+    "symbol": "HUAHUA",
+    "decimals": 6
+  },
+  "ibc/67795E528DF67C5606FC20F824EA39A6EF55BA133F4DC79C90A8C47A0901E17C": {
+    "symbol": "UMEE",
+    "decimals": 6
+  },
+  "ibc/BE1BB42D4BE3C30D50B68D7C41DB4DFCE9678E8EF8C539F6E6A9345048894FCC": {
+    "symbol": "USTC",
+    "decimals": 6
+  },
+  "ibc/6AE98883D4D5D5FF9E50D7130F1305DA2FFA0C652D1DD9C123657C6B4EB2DF8A": {
+    "symbol": "EVMOS",
+    "decimals": 18
+  },
+  "ibc/4E5444C35610CC76FC94E7F7886B93121175C28262DDFDDE6F84E82BF2425452": {
+    "symbol": "BTSG",
     "decimals": 6
   }
 }
