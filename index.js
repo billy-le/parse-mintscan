@@ -9,19 +9,64 @@ const csvStringify = require("csv-stringify/sync");
 const walletAddress = process.argv[2];
 if (!walletAddress) throw new Error("no wallet provided as argument");
 
+const csvFilename = "./csv/cosmos_data.csv";
+const timeoutFilename = "timeout_txs.txt";
+
+// fetch("https://chains.cosmos.directory/")
+//   .then((res) => {
+//     if (res.ok) {
+//       return res.json();
+//     } else {
+//       throw new Error();
+//     }
+//   })
+//   .then(async (data) => {
+//     const d = await fs.promises.readFile("ibc-denominations.json");
+//     let denoms = JSON.parse(d.toString());
+
+//     for (const { denom, symbol, assets } of data.chains) {
+//       if (!denoms[denom]) {
+//         denoms[denom] = symbol;
+//       }
+
+//       if (assets) {
+//         for (const { denom, symbol } of assets) {
+//           if (!denoms[denom]) {
+//             denoms[denom] = symbol;
+//           }
+//         }
+//       }
+//     }
+
+//     denoms = Object.keys(denoms)
+//       .sort()
+//       .reduce((acc, key) => {
+//         acc[key] = denoms[key];
+//         return acc;
+//       }, {});
+
+//     await fs.promises.writeFile(
+//       "ibc-denominations.json",
+//       JSON.stringify(denoms)
+//     );
+//   })
+//   .catch((err) => {
+//     console.log(err);
+//   });
+
 chain([
-  fs.createReadStream("headers.txt"),
+  fs.createReadStream("./headers/koinly.txt"),
   (data) => {
-    return data.toString();
+    return data.toString() + "\n";
   },
-  fs.createWriteStream("data.csv"),
+  fs.createWriteStream(csvFilename),
 ]);
 
 const msgTypes = new Set();
 
 let txCount = 0;
 const pipeline = chain([
-  fs.createReadStream("cosmos.json"),
+  fs.createReadStream("./data/cosmos.json"),
   parser(),
   streamArray(),
   async (data) => {
@@ -36,7 +81,7 @@ const pipeline = chain([
     transactions.push(mainTx);
     return transactions.join("");
   },
-  fs.createWriteStream("data.csv", { flags: "a" }),
+  fs.createWriteStream(csvFilename, { flags: "a" }),
 ]);
 
 pipeline.on("end", async () => {
@@ -44,20 +89,18 @@ pipeline.on("end", async () => {
 
   // remove txs from timeouts and meta from csv
   let records = [];
-  fs.createReadStream("data.csv")
+  fs.createReadStream(csvFilename)
     .pipe(csvParser())
     .on("data", (data) => {
       try {
-        const timeoutData = fs.readFileSync("timeout_txs.txt");
+        const timeoutData = fs.readFileSync(timeoutFilename);
         const timeouts = timeoutData.toString().split("\n");
 
         if (!data.Meta || !timeouts.includes(data.Meta)) {
           delete data.Meta;
           records.push(data);
         }
-      } catch (err) {
-        console.log("no timeout txs found!");
-      }
+      } catch (err) {}
     })
     .on("end", () => {
       if (records.length) {
@@ -67,11 +110,13 @@ pipeline.on("end", async () => {
         }, {});
         records.unshift(headers);
         const output = csvStringify.stringify(records);
-        fs.writeFileSync("data.csv", output);
+        fs.writeFileSync(csvFilename, output);
+      } else {
+        console.log("no timeout txs found!");
       }
 
       // delete timeout file silently
-      fs.unlink("timeout_txs.txt", (err) => {
+      fs.unlink(timeoutFilename, (err) => {
         if (err) return;
       });
     });

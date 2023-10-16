@@ -3,6 +3,7 @@ const util = require("util");
 const currency = require("currency.js");
 const { exec } = require("child_process");
 const { format: dateFormat, parseISO } = require("date-fns");
+const transformTransaction = require("./transactions-transformers/koinly");
 
 const execPromise = util.promisify(exec);
 const denominator = 1_000_000;
@@ -35,10 +36,7 @@ async function getIbcDenomination(pathHash) {
 
     ibcDenominations[pathHash] = token;
 
-    await fs.promises.writeFile(
-      filePath,
-      JSON.stringify(ibcDenominations, null, 2)
-    );
+    await fs.promises.writeFile(filePath, JSON.stringify(ibcDenominations));
     return token;
   } catch (err) {
     console.log(err);
@@ -55,7 +53,7 @@ function createTransaction({
   receivedAmount = "",
   feeAsset = "ATOM",
   feeAmount = "",
-  marketValueCurrency = "USD",
+  marketValueCurrency = "",
   marketValue = "",
   description = "",
   transactionHash = "",
@@ -64,15 +62,15 @@ function createTransaction({
 }) {
   return {
     date,
-    type,
-    sentAsset,
     sentAmount,
-    receivedAsset,
+    sentAsset,
     receivedAmount,
-    feeAsset,
+    receivedAsset,
     feeAmount,
-    marketValueCurrency,
+    feeAsset,
     marketValue,
+    marketValueCurrency,
+    type,
     description,
     transactionHash,
     transactionId,
@@ -83,7 +81,7 @@ function createTransaction({
 function getFees(tx) {
   const { auth_info } = getModuleType(tx);
   const fee = auth_info.fee.amount[0];
-  return currency(fee.amount, { precision: 8 }).divide(denominator).value;
+  return currency(fee.amount, { precision: 6 }).divide(denominator).value;
 }
 
 async function processTransaction(
@@ -113,14 +111,16 @@ async function processTransaction(
   if (!logs.length) {
     processed = true;
     transactions.push(
-      createTransaction({
-        date,
-        transactionHash,
-        transactionId,
-        feeAmount: getFees(tx),
-        type: "Expense",
-        description: "Transaction Failed",
-      })
+      ...transformTransaction(
+        createTransaction({
+          date,
+          transactionHash,
+          transactionId,
+          feeAmount: getFees(tx),
+          type: "Expense",
+          description: "Transaction Failed",
+        })
+      )
     );
   } else {
     for (const type in msgTypeGroup) {
@@ -134,106 +134,258 @@ async function processTransaction(
           }
 
           transactions.push(
-            createTransaction({
-              date,
-              transactionHash,
-              transactionId,
-              type: "Expense",
-              description: `Vote on ${proposals.join(" ")}`,
-              feeAmount: getFees(tx),
-            })
+            ...transformTransaction(
+              createTransaction({
+                date,
+                transactionHash,
+                transactionId,
+                type: "Expense",
+                description: `Vote on ${proposals.join(" ")}`,
+                feeAmount: getFees(tx),
+              })
+            )
           );
           break;
         }
 
         case "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward": {
           processed = true;
-          const tokensDict = {};
+
+          let tokens = {};
+
           for (const log of logs) {
-            for (const event of log.events) {
-              if (event.type == "withdraw_rewards") {
-                const attr = event.attributes.find(
-                  (attr) => attr.key === "amount"
-                );
-
-                const tokens = attr.value.split(",");
-                for (const value of tokens) {
-                  const [amount, token] = value
-                    .split(/^(\d+)(.+)/)
-                    .filter((x) => x);
-
-                  const ibcToken = await getIbcDenomination(token);
-                  if (!tokensDict[ibcToken]) {
-                    tokensDict[ibcToken] = currency(0, { precision: 8 });
+            for (const evt of log.events) {
+              if (evt.type == "transfer") {
+                const groups = [];
+                for (let i = 0; i < evt.attributes.length; i += 3) {
+                  const group = evt.attributes.slice(i, i + 3);
+                  const recipient = group[0];
+                  const sender = group[1];
+                  const amount = group[2];
+                  if (recipient.value === address) {
+                    groups.push({
+                      recipient: recipient.value,
+                      sender: sender.value,
+                      amount: amount.value,
+                    });
                   }
-                  tokensDict[ibcToken] = tokensDict[ibcToken]
-                    .add(amount)
-                    .divide(denominator);
+                }
+
+                for (const { amount } of groups) {
+                  const assets = amount.split(",");
+                  for (const asset of assets) {
+                    const [amount, _token] = asset
+                      .split(/^(\d+)(.+)/)
+                      .filter((x) => x);
+                    const token = await getIbcDenomination(_token);
+                    if (!tokens[token]) {
+                      tokens[token] = currency(0, { precision: 6 });
+                    }
+                    tokens[token] = tokens[token].add(amount);
+                  }
                 }
               }
             }
           }
 
-          for (const token in tokensDict) {
+          for (const token in tokens) {
             transactions.push(
+              ...transformTransaction(
+                createTransaction({
+                  date,
+                  transactionHash,
+                  transactionId,
+                  receivedAmount: tokens[token].divide(denominator).value,
+                  receivedAsset: token,
+                  type: "Staking",
+                  description: `Claimed Rewards`,
+                  feeAmount: "",
+                  feeAsset: "",
+                })
+              )
+            );
+          }
+
+          transactions.push(
+            ...transformTransaction(
               createTransaction({
                 date,
                 transactionHash,
                 transactionId,
-                receivedAsset: token.toUpperCase(),
-                receivedAmount: tokensDict[token].value,
-                description: "Claim Rewards",
-                type: "Staking",
-                feeAsset: "",
+                feeAmount: getFees(tx),
+                type: "Expense",
               })
-            );
-          }
+            )
+          );
+
           break;
         }
         case "/cosmos.staking.v1beta1.MsgDelegate": {
+          if (
+            Object.keys(msgTypeGroup).includes(
+              "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward"
+            )
+          )
+            break;
           processed = true;
-          let delegatedAmount = currency(0, { precision: 8 });
+          let tokens = {};
+
+          for (const log of logs) {
+            for (const evt of log.events) {
+              if (evt.type === "transfer") {
+                const groups = [];
+                for (let i = 0; i < evt.attributes.length; i += 3) {
+                  const group = evt.attributes.slice(i, i + 3);
+                  const recipient = group[0];
+                  const sender = group[1];
+                  const amount = group[2];
+                  if (recipient.value === address) {
+                    groups.push({
+                      recipient: recipient.value,
+                      sender: sender.value,
+                      amount: amount.value,
+                    });
+                  }
+                }
+
+                for (const { amount } of groups) {
+                  const assets = amount.split(",");
+                  for (const asset of assets) {
+                    const [amount, _token] = asset
+                      .split(/^(\d+)(.+)/)
+                      .filter((x) => x);
+                    const token = await getIbcDenomination(_token);
+                    if (!tokens[token]) {
+                      tokens[token] = currency(0, { precision: 6 });
+                    }
+                    tokens[token] = tokens[token].add(amount);
+                  }
+                }
+              }
+            }
+          }
+
+          for (const token in tokens) {
+            transactions.push(
+              ...transformTransaction(
+                createTransaction({
+                  date,
+                  transactionHash,
+                  transactionId,
+                  receivedAmount: tokens[token].divide(denominator).value,
+                  receivedAsset: token,
+                  type: "Staking",
+                  description: `Claimed Rewards`,
+                  feeAmount: "",
+                  feeAsset: "",
+                })
+              )
+            );
+          }
+
+          let delegatedAmount = currency(0, { precision: 6 });
           let asset = "";
+
           for (const { amount: token } of msgTypeGroup[type]) {
             asset = await getIbcDenomination(token.denom);
             delegatedAmount = delegatedAmount.add(token.amount);
           }
+
           transactions.push(
-            createTransaction({
-              date,
-              transactionHash,
-              transactionId,
-              type: "Expense",
-              description: `Delegated ${
-                delegatedAmount.divide(denominator).value
-              } ${asset}`,
-              feeAmount: getFees(tx),
-            })
+            ...transformTransaction(
+              createTransaction({
+                date,
+                transactionHash,
+                transactionId,
+                type: "Expense",
+                description: `Delegated ${
+                  delegatedAmount.divide(denominator).value
+                } ${asset}`,
+                feeAmount: getFees(tx),
+              })
+            )
           );
 
           break;
         }
         case "/cosmos.staking.v1beta1.MsgBeginRedelegate": {
           processed = true;
-          let redelagation = currency(0, { precision: 8 });
+          let tokens = {};
+
+          for (const log of logs) {
+            for (const evt of log.events) {
+              if (evt.type === "transfer") {
+                const groups = [];
+                for (let i = 0; i < evt.attributes.length; i += 3) {
+                  const group = evt.attributes.slice(i, i + 3);
+                  const recipient = group[0];
+                  const sender = group[1];
+                  const amount = group[2];
+                  if (recipient.value === address) {
+                    groups.push({
+                      recipient: recipient.value,
+                      sender: sender.value,
+                      amount: amount.value,
+                    });
+                  }
+                }
+
+                for (const { amount } of groups) {
+                  const assets = amount.split(",");
+                  for (const asset of assets) {
+                    const [amount, _token] = asset
+                      .split(/^(\d+)(.+)/)
+                      .filter((x) => x);
+                    const token = await getIbcDenomination(_token);
+                    if (!tokens[token]) {
+                      tokens[token] = currency(0, { precision: 6 });
+                    }
+                    tokens[token] = tokens[token].add(amount);
+                  }
+                }
+              }
+            }
+          }
+
+          for (const token in tokens) {
+            transactions.push(
+              ...transformTransaction(
+                createTransaction({
+                  date,
+                  transactionHash,
+                  transactionId,
+                  receivedAmount: tokens[token].divide(denominator).value,
+                  receivedAsset: token,
+                  type: "Staking",
+                  description: `Claimed Rewards`,
+                  feeAmount: "",
+                  feeAsset: "",
+                })
+              )
+            );
+          }
+
+          let redelagation = currency(0, { precision: 6 });
           let asset = "";
           for (const { amount: token } of msgTypeGroup[type]) {
             asset = await getIbcDenomination(token.denom);
-            const amount = currency(token.amount, { precision: 8 }).divide(
+            const amount = currency(token.amount, { precision: 6 }).divide(
               denominator
             );
             redelagation = redelagation.add(amount);
           }
 
           transactions.push(
-            createTransaction({
-              date,
-              transactionHash,
-              transactionId,
-              description: `Redelegate ${redelagation.value} ${asset}`,
-              type: "Other",
-              feeAmount: getFees(tx),
-            })
+            ...transformTransaction(
+              createTransaction({
+                date,
+                transactionHash,
+                transactionId,
+                description: `Redelegate ${redelagation.value} ${asset}`,
+                type: "Expense",
+                feeAmount: getFees(tx),
+              })
+            )
           );
           break;
         }
@@ -248,27 +400,29 @@ async function processTransaction(
               timeout_height: { revision_number, revision_height },
             } = msg;
             const tokens = denom.split(",");
-            const transferAmount = currency(amount, { precision: 8 }).divide(
+            const transferAmount = currency(amount, { precision: 6 }).divide(
               denominator
             ).value;
-            const transaction = createTransaction({
-              date,
-              transactionHash,
-              transactionId,
-              feeAmount: getFees(tx),
-              type: "Transfer",
-              meta: `timeout_height: ${revision_number}_${revision_height}`,
-            });
+
             for (const _token of tokens) {
+              const transaction = createTransaction({
+                date,
+                transactionHash,
+                transactionId,
+                feeAmount: getFees(tx),
+                meta: `timeout_height: ${revision_number}_${revision_height}`,
+              });
               const token = await getIbcDenomination(_token);
               if (sender === address) {
                 transaction.sentAmount = transferAmount;
                 transaction.sentAsset = token;
+                transaction.type = "Transfer";
               } else if (receiver === address) {
                 transaction.receivedAmount = transferAmount;
                 transaction.receivedAsset = token;
+                transaction.type = "Deposit";
               }
-              transactions.push(transaction);
+              transactions.push(...transformTransaction(transaction));
             }
           }
           break;
@@ -318,17 +472,21 @@ async function processTransaction(
                   if (receiver === address) {
                     const parts = denom.split("/");
                     transactions.push(
-                      createTransaction({
-                        date,
-                        transactionHash,
-                        transactionId,
-                        receivedAmount: currency(amount, {
-                          precision: 8,
-                        }).divide(denominator).value,
-                        receivedAsset: parts[parts.length - 1],
-                        type: "Deposit",
-                        feeAsset: "",
-                      })
+                      ...transformTransaction(
+                        createTransaction({
+                          date,
+                          transactionHash,
+                          transactionId,
+                          receivedAmount: currency(amount, {
+                            precision: 6,
+                          }).divide(denominator).value,
+                          receivedAsset: await getIbcDenomination(
+                            parts[parts.length - 1]
+                          ),
+                          type: "Deposit",
+                          feeAsset: "",
+                        })
+                      )
                     );
                   }
                 }
@@ -346,10 +504,9 @@ async function processTransaction(
           processed = true;
           for (const msg of msgTypeGroup[type]) {
             const { from_address, to_address, amount: amounts } = msg;
-            if (from_address !== address && to_address !== address) break;
 
             for (const { denom, amount } of amounts) {
-              const tokenAmount = currency(amount, { precision: 8 }).divide(
+              const tokenAmount = currency(amount, { precision: 6 }).divide(
                 denominator
               ).value;
               const token = await getIbcDenomination(denom);
@@ -365,13 +522,13 @@ async function processTransaction(
                 transaction.sentAmount = tokenAmount;
                 transaction.sentAsset = token;
                 transaction.type = "Transfer";
+                transactions.push(...transformTransaction(transaction));
               } else if (to_address === address) {
                 transaction.receivedAmount = tokenAmount;
                 transaction.receivedAsset = token;
                 transaction.type = "Deposit";
+                transactions.push(...transformTransaction(transaction));
               }
-
-              transactions.push(transaction);
             }
           }
           break;
@@ -388,27 +545,29 @@ async function processTransaction(
             } = msg;
             const feeDenom = await getIbcDenomination(offer_coin_fee.denom);
             const feeAmount = currency(offer_coin_fee.amount, {
-              precision: 8,
+              precision: 6,
             }).divide(denominator);
             const offerCoinDenom = await getIbcDenomination(offer_coin.denom);
             const offerCoinAmount = currency(offer_coin.amount, {
-              precision: 8,
+              precision: 6,
             }).divide(denominator);
             const demandCoinDenom = await getIbcDenomination(demand_coin_denom);
             const demandCoinAmount = offerCoinAmount.multiply(order_price);
             transactions.push(
-              createTransaction({
-                date,
-                transactionHash,
-                transactionId,
-                feeAmount: feeAmount.value,
-                feeAsset: feeDenom,
-                sentAmount: offerCoinAmount.value,
-                sentAsset: offerCoinDenom,
-                receivedAmount: demandCoinAmount.value,
-                receivedAsset: demandCoinDenom,
-                type: "Convert",
-              })
+              ...transformTransaction(
+                createTransaction({
+                  date,
+                  transactionHash,
+                  transactionId,
+                  feeAmount: feeAmount.value,
+                  feeAsset: feeDenom,
+                  sentAmount: offerCoinAmount.value,
+                  sentAsset: offerCoinDenom,
+                  receivedAmount: demandCoinAmount.value,
+                  receivedAsset: demandCoinDenom,
+                  type: "Swap",
+                })
+              )
             );
           }
           break;
@@ -417,18 +576,20 @@ async function processTransaction(
           processed = true;
           for (const msg of msgTypeGroup[type]) {
             transactions.push(
-              createTransaction({
-                date,
-                transactionHash,
-                transactionId,
-                type: "Other",
-                description: "Withdraw from Liquidity Pool",
-                receivedAmount: currency(msg.pool_coin.amount, {
-                  precision: 8,
-                }).divide(denominator).value,
-                receivedAsset: msg.pool_coin.denom,
-                feeAmount: getFees(tx),
-              })
+              ...transformTransaction(
+                createTransaction({
+                  date,
+                  transactionHash,
+                  transactionId,
+                  type: "Other",
+                  description: "Withdraw from Liquidity Pool",
+                  receivedAmount: currency(msg.pool_coin.amount, {
+                    precision: 6,
+                  }).divide(denominator).value,
+                  receivedAsset: msg.pool_coin.denom,
+                  feeAmount: getFees(tx),
+                })
+              )
             );
           }
           break;
@@ -438,18 +599,20 @@ async function processTransaction(
           for (const msg of msgTypeGroup[type]) {
             for (const token of msg.deposit_coins) {
               transactions.push(
-                createTransaction({
-                  date,
-                  transactionHash,
-                  transactionId,
-                  feeAmount: getFees(tx),
-                  description: "Deposit to Liquidity Pool",
-                  type: "Other",
-                  sentAmount: currency(token.amount, { precision: 8 }).divide(
-                    denominator
-                  ).value,
-                  sentAsset: await getIbcDenomination(token.denom),
-                })
+                ...transformTransaction(
+                  createTransaction({
+                    date,
+                    transactionHash,
+                    transactionId,
+                    feeAmount: getFees(tx),
+                    description: "Deposit to Liquidity Pool",
+                    type: "Other",
+                    sentAmount: currency(token.amount, { precision: 6 }).divide(
+                      denominator
+                    ).value,
+                    sentAsset: await getIbcDenomination(token.denom),
+                  })
+                )
               );
             }
           }
