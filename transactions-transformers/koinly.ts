@@ -7,7 +7,7 @@ const typeMappings = {
   Other: "",
 };
 
-function transformTransaction(tx) {
+function transformTransaction(tx: Transaction): Transaction[] {
   const { type, feeAsset, feeAmount } = tx;
 
   switch (type) {
@@ -90,7 +90,7 @@ function transformTransaction(tx) {
           ...tx,
           feeAmount: "",
           feeAsset: "",
-          type: typeMappings[type],
+          type: typeMappings[type as keyof typeof typeMappings],
         },
       ];
     }

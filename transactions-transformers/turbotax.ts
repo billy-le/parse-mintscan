@@ -1,4 +1,4 @@
-function transformTransaction(tx) {
+function transformTransaction(tx: Transaction): Transaction {
   const {
     date,
     type = "",

@@ -83,7 +83,7 @@ function createTransaction({
   transactionHash = "",
   transactionId = "",
   meta = "",
-}) {
+}: Transaction) {
   return {
     date,
     sentAmount,
