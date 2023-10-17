@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun run --watch index.js"
+    "dev": "bun run --watch index.ts"
   },
   "keywords": [],
   "author": "",
@@ -20,7 +20,9 @@
     "stream-json": "^1.8.0"
   },
   "devDependencies": {
-    "bun-types": "latest"
+    "@types/stream-chain": "^2.0.2",
+    "@types/stream-json": "^1.7.4",
+    "bun-types": "^1.0.6"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"

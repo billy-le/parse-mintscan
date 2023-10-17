@@ -33,4 +33,4 @@ function transformTransaction(tx) {
   };
 }
 
-module.exports = transformTransaction;
+export default transformTransaction;

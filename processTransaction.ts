@@ -1,27 +1,27 @@
-const fs = require("fs");
-const util = require("util");
-const { exec } = require("child_process");
-const { format: dateFormat, parseISO, add } = require("date-fns");
-const { default: bigDecimal } = require("js-big-decimal");
-const transformTransaction = require("./transactions-transformers/koinly");
+import fs from "fs";
+import util from "util";
+import { exec } from "child_process";
+import { format as dateFormat, parseISO } from "date-fns";
+import bigDecimal from "js-big-decimal";
+import transformTransaction from "./transactions-transformers/koinly.ts";
 
 const execPromise = util.promisify(exec);
 const precision = 6;
 const denominator = Math.pow(10, precision);
 
-function getAssetInfo(asset) {
+function getAssetInfo(asset: string) {
   return asset.split(/^(\d+)(.+)/).filter((x) => x);
 }
 
-function getDenominator(decimals) {
+function getDenominator(decimals: number) {
   return Math.pow(10, decimals);
 }
 
-function getModuleType(mod) {
+function getModuleType(mod: any) {
   return mod[mod["@type"].replaceAll(".", "-")];
 }
 
-async function getIbcDenomination(pathHash) {
+async function getIbcDenomination(pathHash: string) {
   if (!pathHash) throw new Error("pathHash not provided");
   const filePath = "./ibc-denominations.json";
 
@@ -38,19 +38,22 @@ async function getIbcDenomination(pathHash) {
     if (stderr) {
       throw new Error(stderr);
     }
-    const token = stdout
-      .split("\n")
-      .find((part) => part.includes("base_denom"))
-      .replaceAll(/base_denom:/gi, "")
-      .replaceAll(" ", "");
 
-    ibcDenominations[pathHash] = { symbol: token, decimals: 6 };
+    if (stdout) {
+      const token = stdout
+        .split("\n")
+        .find((part) => part.includes("base_denom"))
+        ?.replaceAll(/base_denom:/gi, "")
+        ?.replaceAll(" ", "");
 
-    await fs.promises.writeFile(
-      filePath,
-      JSON.stringify(ibcDenominations, null, 2)
-    );
-    return token;
+      ibcDenominations[pathHash] = { symbol: token, decimals: 6 };
+
+      await fs.promises.writeFile(
+        filePath,
+        JSON.stringify(ibcDenominations, null, 2)
+      );
+      return token;
+    }
   } catch (err) {
     console.log(err);
     const file = await fs.promises.readFile(filePath);
@@ -66,13 +69,13 @@ async function getIbcDenomination(pathHash) {
 }
 
 function createTransaction({
-  date,
+  date = "",
   type = "",
   sentAsset = "",
   sentAmount = "",
   receivedAsset = "",
   receivedAmount = "",
-  feeAsset = "JUNO",
+  feeAsset = "ATOM",
   feeAmount = "",
   marketValueCurrency = "",
   marketValue = "",
@@ -99,7 +102,7 @@ function createTransaction({
   };
 }
 
-async function getFees(tx) {
+async function getFees(tx: any) {
   const { auth_info } = getModuleType(tx);
   const fee = auth_info.fee.amount[0];
   const feeToken = await getIbcDenomination(fee.denom);
@@ -111,8 +114,25 @@ async function getFees(tx) {
 }
 
 async function processTransaction(
-  address,
-  { txhash: transactionHash, id: transactionId, timestamp, tx, logs }
+  address: string,
+  {
+    txhash: transactionHash,
+    id: transactionId,
+    timestamp,
+    tx,
+    logs,
+  }: {
+    txhash: string;
+    id: string;
+    timestamp: string;
+    tx: Record<string, any>;
+    logs: {
+      events: Array<{
+        type: string;
+        attributes: Array<{ key: string; value: string }>;
+      }>;
+    }[];
+  }
 ) {
   const date = dateFormat(parseISO(timestamp), "yyyy-MM-dd H:mm:ss");
 
@@ -120,9 +140,9 @@ async function processTransaction(
 
   const { body } = getModuleType(tx);
 
-  const msgTypeGroup = {};
+  const msgTypeGroup: Record<string, Array<any>> = {};
 
-  body.messages.forEach((message) => {
+  body.messages.forEach((message: any) => {
     const msgType = message["@type"];
     if (!msgTypeGroup[msgType]) {
       msgTypeGroup[msgType] = [];
@@ -177,7 +197,10 @@ async function processTransaction(
         case "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward": {
           processed = true;
 
-          let tokens = {};
+          let tokens: Record<
+            string,
+            { amount: string | number; decimals: number }
+          > = {};
 
           for (const log of logs) {
             for (const evt of log.events) {
@@ -271,7 +294,10 @@ async function processTransaction(
           )
             break;
           processed = true;
-          let tokens = {};
+          let tokens: Record<
+            string,
+            { amount: number | string; decimals: number }
+          > = {};
 
           for (const log of logs) {
             for (const evt of log.events) {
@@ -368,7 +394,10 @@ async function processTransaction(
         }
         case "/cosmos.staking.v1beta1.MsgBeginRedelegate": {
           processed = true;
-          let tokens = {};
+          let tokens: Record<
+            string,
+            { amount: string | number; decimals: number }
+          > = {};
 
           for (const log of logs) {
             for (const evt of log.events) {
@@ -614,7 +643,7 @@ async function processTransaction(
                 break;
               }
               default: {
-                console.log(msgType);
+                // console.log(msgType);
                 break;
               }
             }
@@ -769,7 +798,11 @@ async function processTransaction(
         }
         case "/cosmos.authz.v1beta1.MsgExec": {
           processed = true;
-          const rewards = [];
+          const rewards: Array<{
+            recipient: string;
+            sender: string;
+            amount: string;
+          }> = [];
           for (const log of logs) {
             for (const evt of log.events) {
               if (evt.type === "transfer") {
@@ -782,9 +815,10 @@ async function processTransaction(
                   const reward = evt.attributes
                     .slice(i, i + keys.size)
                     .reduce((acc, obj) => {
-                      acc[obj.key] = obj.value;
+                      acc[obj.key as keyof (typeof rewards)[number]] =
+                        obj.value;
                       return acc;
-                    }, {});
+                    }, {} as (typeof rewards)[number]);
                   if (reward.recipient === address) {
                     rewards.push(reward);
                   }
@@ -793,7 +827,10 @@ async function processTransaction(
             }
           }
 
-          let tokens = {};
+          let tokens: Record<
+            string,
+            { amount: string | number; decimals: number }
+          > = {};
 
           for (const { amount: asset } of rewards) {
             const parts = asset.split(",");
@@ -1086,4 +1123,4 @@ async function processTransaction(
   return transactions.map((tx) => Object.values(tx).join(",") + "\n").join("");
 }
 
-module.exports = processTransaction;
+export default processTransaction;
