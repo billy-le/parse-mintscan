@@ -1,8 +1,8 @@
 const fs = require("fs");
 const util = require("util");
-const currency = require("currency.js");
 const { exec } = require("child_process");
-const { format: dateFormat, parseISO } = require("date-fns");
+const { format: dateFormat, parseISO, add } = require("date-fns");
+const { default: bigDecimal } = require("js-big-decimal");
 const transformTransaction = require("./transactions-transformers/koinly");
 
 const execPromise = util.promisify(exec);
@@ -103,9 +103,11 @@ async function getFees(tx) {
   const { auth_info } = getModuleType(tx);
   const fee = auth_info.fee.amount[0];
   const feeToken = await getIbcDenomination(fee.denom);
-  return currency(fee.amount, { precision: feeToken.decimals }).divide(
-    Math.pow(10, feeToken.decimals)
-  ).value;
+  return bigDecimal.divide(
+    fee.amount,
+    getDenominator(feeToken.decimals),
+    feeToken.decimals
+  );
 }
 
 async function processTransaction(
@@ -205,17 +207,15 @@ async function processTransaction(
 
                     if (!tokens[token.symbol]) {
                       tokens[token.symbol] = {
-                        amount: currency(0, {
-                          precision: token.decimals,
-                        }),
+                        amount: 0,
                         decimals: token.decimals,
                       };
                     }
 
-                    tokens[token.symbol] = {
-                      amount: tokens[token.symbol].amount.add(amount),
-                      decimals: token.decimals,
-                    };
+                    tokens[token.symbol].amount = bigDecimal.add(
+                      tokens[token.symbol].amount,
+                      amount
+                    );
                   }
                 }
               }
@@ -229,9 +229,11 @@ async function processTransaction(
                   date,
                   transactionHash,
                   transactionId,
-                  receivedAmount: tokens[token].amount.divide(
-                    getDenominator(tokens[token].decimals)
-                  ).value,
+                  receivedAmount: bigDecimal.divide(
+                    tokens[token].amount,
+                    getDenominator(tokens[token].decimals),
+                    tokens[token].decimals
+                  ),
                   receivedAsset: token,
                   type: "Staking",
                   description: `Claimed Rewards`,
@@ -293,17 +295,15 @@ async function processTransaction(
                     const token = await getIbcDenomination(_token);
                     if (!tokens[token.symbol]) {
                       tokens[token.symbol] = {
-                        amount: currency(0, {
-                          precision: token.decimals,
-                        }),
+                        amount: 0,
                         decimals: token.decimals,
                       };
                     }
 
-                    tokens[token.symbol] = {
-                      amount: tokens[token.symbol].amount.add(amount),
-                      decimals: token.decimals,
-                    };
+                    tokens[token.symbol].amount = bigDecimal.add(
+                      tokens[token.symbol].amount,
+                      amount
+                    );
                   }
                 }
               }
@@ -317,9 +317,11 @@ async function processTransaction(
                   date,
                   transactionHash,
                   transactionId,
-                  receivedAmount: tokens[token].amount.divide(
-                    getDenominator(tokens[token].decimals)
-                  ).value,
+                  receivedAmount: bigDecimal.divide(
+                    tokens[token].amount,
+                    getDenominator(tokens[token].decimals),
+                    tokens[token].decimals
+                  ),
                   receivedAsset: token,
                   type: "Staking",
                   description: `Claimed Rewards`,
@@ -334,9 +336,11 @@ async function processTransaction(
             amount: { denom, amount },
           } of msgTypeGroup[type]) {
             const token = await getIbcDenomination(denom);
-            const delegatedAmount = currency(amount, {
-              precision: token.decimals,
-            }).divide(getDenominator(token.decimals));
+            const delegatedAmount = bigDecimal.divide(
+              amount,
+              getDenominator(token.decimals),
+              token.decimals
+            );
             transactions.push(
               ...transformTransaction(
                 createTransaction({
@@ -344,7 +348,7 @@ async function processTransaction(
                   transactionHash,
                   transactionId,
                   type: "Expense",
-                  description: `Delegated ${delegatedAmount.value} ${token.symbol}`,
+                  description: `Delegated ${delegatedAmount} ${token.symbol}`,
                   feeAmount: await getFees(tx),
                 })
               )
@@ -384,17 +388,15 @@ async function processTransaction(
                     const token = await getIbcDenomination(_token);
                     if (!tokens[token.symbol]) {
                       tokens[token.symbol] = {
-                        amount: currency(0, {
-                          precision: token.decimals,
-                        }),
+                        amount: 0,
                         decimals: token.decimals,
                       };
                     }
 
-                    tokens[token.symbol] = {
-                      amount: tokens[token.symbol].amount.add(amount),
-                      decimals: token.decimals,
-                    };
+                    tokens[token.symbol].amount = bigDecimal.add(
+                      tokens[token.symbol].amount,
+                      amount
+                    );
                   }
                 }
               }
@@ -408,9 +410,11 @@ async function processTransaction(
                   date,
                   transactionHash,
                   transactionId,
-                  receivedAmount: tokens[token].amount.divide(
-                    getDenominator(tokens[token].decimals)
-                  ).value,
+                  receivedAmount: bigDecimal.divide(
+                    tokens[token].amount,
+                    getDenominator(tokens[token].decimals),
+                    tokens[token].decimals
+                  ),
                   receivedAsset: token,
                   type: "Staking",
                   description: `Claimed Rewards`,
@@ -425,16 +429,18 @@ async function processTransaction(
             amount: { denom, amount },
           } of msgTypeGroup[type]) {
             const token = await getIbcDenomination(denom);
-            const redelagation = currency(amount, {
-              precision: token.decimals,
-            }).divide(getDenominator(token.decimals));
+            const redelagation = bigDecimal.divide(
+              amount,
+              getDenominator(token.decimals),
+              token.decimals
+            );
             transactions.push(
               ...transformTransaction(
                 createTransaction({
                   date,
                   transactionHash,
                   transactionId,
-                  description: `Redelegate ${redelagation.value} ${token.symbol}`,
+                  description: `Redelegate ${redelagation} ${token.symbol}`,
                   type: "Expense",
                   feeAmount: await getFees(tx),
                 })
@@ -465,9 +471,11 @@ async function processTransaction(
                 meta: `timeout_height: ${revision_number}_${revision_height}`,
               });
               const token = await getIbcDenomination(_token);
-              const transferAmount = currency(amount, {
-                precision: token.decimals,
-              }).divide(getDenominator(token.decimals)).value;
+              const transferAmount = bigDecimal.divide(
+                amount,
+                getDenominator(token.decimals),
+                token.decimals
+              );
               if (sender === address) {
                 transaction.sentAmount = transferAmount;
                 transaction.sentAsset = token.symbol;
@@ -560,10 +568,11 @@ async function processTransaction(
                                     date,
                                     transactionHash,
                                     transactionId,
-                                    receivedAmount: currency(assetAmount, {
-                                      precision: token.decimals,
-                                    }).divide(getDenominator(token.decimals))
-                                      .value,
+                                    receivedAmount: bigDecimal.divide(
+                                      assetAmount,
+                                      getDenominator(token.decimals),
+                                      token.decimals
+                                    ),
                                     receivedAsset: token.symbol,
                                     type: "Deposit",
                                     feeAsset: "",
@@ -594,9 +603,11 @@ async function processTransaction(
 
             for (const { denom, amount } of amounts) {
               const token = await getIbcDenomination(denom);
-              const tokenAmount = currency(amount, {
-                precision: token.decimals,
-              }).divide(getDenominator(token.decimals)).value;
+              const tokenAmount = bigDecimal.divide(
+                amount,
+                getDenominator(token.decimals),
+                token.decimals
+              );
               const transaction = createTransaction({
                 date,
                 transactionHash,
@@ -630,28 +641,33 @@ async function processTransaction(
               order_price,
             } = msg;
             const feeDenom = await getIbcDenomination(offer_coin_fee.denom);
-            const feeAmount = currency(offer_coin_fee.amount, {
-              precision: feeDenom.decimals,
-            }).divide(getDenominator(feeDenom.decimals));
+            const feeAmount = bigDecimal.divide(
+              offer_coin_fee.amount,
+              getDenominator(feeDenom.decimals),
+              feeDenom.decimals
+            );
             const offerCoinDenom = await getIbcDenomination(offer_coin.denom);
-            const offerCoinAmount = currency(offer_coin.amount, {
-              precision: offerCoinDenom.decimals,
-            }).divide(getDenominator(offerCoinDenom.decimals));
+            const offerCoinAmount = bigDecimal.divide(
+              offer_coin.amount,
+              getDenominator(offerCoinDenom.decimals),
+              offerCoinDenom.decimals
+            );
             const demandCoinDenom = await getIbcDenomination(demand_coin_denom);
-            const demandCoinAmount = offerCoinAmount.multiply(order_price, {
-              precision: demandCoinDenom.decimals,
-            });
+            const demandCoinAmount = bigDecimal.multiply(
+              offerCoinAmount,
+              order_price
+            );
             transactions.push(
               ...transformTransaction(
                 createTransaction({
                   date,
                   transactionHash,
                   transactionId,
-                  feeAmount: feeAmount.value,
+                  feeAmount: feeAmount,
                   feeAsset: feeDenom.symbol,
-                  sentAmount: offerCoinAmount.value,
+                  sentAmount: offerCoinAmount,
                   sentAsset: offerCoinDenom.symbol,
-                  receivedAmount: demandCoinAmount.value,
+                  receivedAmount: demandCoinAmount,
                   receivedAsset: demandCoinDenom.symbol,
                   type: "Swap",
                 })
@@ -672,9 +688,11 @@ async function processTransaction(
                   transactionId,
                   type: "Other",
                   description: "Withdraw from Liquidity Pool",
-                  receivedAmount: currency(msg.pool_coin.amount, {
-                    precision,
-                  }).divide(denominator).value,
+                  receivedAmount: bigDecimal.divide(
+                    msg.pool_coin.amount,
+                    denominator,
+                    precision
+                  ),
                   receivedAsset: msg.pool_coin.denom,
                   feeAmount: await getFees(tx),
                 })
@@ -697,9 +715,11 @@ async function processTransaction(
                     transactionId,
                     description: "Deposit to Liquidity Pool",
                     type: "Other",
-                    sentAmount: currency(amount, {
-                      precision: token.decimals,
-                    }).divide(getDenominator(token.decimals)).value,
+                    sentAmount: bigDecimal.divide(
+                      amount,
+                      getDenominator(token.decimals),
+                      token.decimals
+                    ),
                     sentAsset: token.symbol,
                   })
                 )
@@ -722,8 +742,8 @@ async function processTransaction(
           break;
         }
         case "/cosmos.authz.v1beta1.MsgExec": {
+          processed = true;
           const rewards = [];
-          const delegated = [];
           for (const log of logs) {
             for (const evt of log.events) {
               if (evt.type === "transfer") {
@@ -756,15 +776,14 @@ async function processTransaction(
               const { symbol, decimals } = await getIbcDenomination(denom);
               if (!tokens[symbol]) {
                 tokens[symbol] = {
-                  amount: currency(0, { precision: decimals }),
+                  amount: 0,
                   decimals: decimals,
                 };
               }
 
-              tokens[symbol].amount = tokens[symbol].amount.add(
-                currency(amount, { precision: decimals }).divide(
-                  getDenominator(decimals)
-                )
+              tokens[symbol].amount = bigDecimal.add(
+                tokens[symbol].amount,
+                amount
               );
             }
           }
@@ -776,11 +795,15 @@ async function processTransaction(
                   date,
                   transactionHash,
                   transactionId,
-                  receivedAmount: tokens[token].amount.value,
+                  receivedAmount: bigDecimal.divide(
+                    tokens[token].amount,
+                    getDenominator(tokens[token].decimals),
+                    tokens[token].decimals
+                  ),
                   receivedAsset: token,
                   feeAmount: "",
                   feeAsset: "",
-                  description: "Claimed Rewards",
+                  description: "Claimed Rewards via Grant Auth",
                   type: "Staking",
                 })
               )
@@ -799,6 +822,60 @@ async function processTransaction(
           );
           break;
         }
+        case "/cosmos.authz.v1beta1.MsgGrant": {
+          processed = true;
+
+          for (const log of logs) {
+            for (const event of log.events) {
+              if (event.type === "cosmos.authz.v1beta1.EventGrant") {
+                for (const attr of event.attributes) {
+                  if (attr.key === "granter" && attr.value.includes(address)) {
+                    transactions.push(
+                      ...transformTransaction(
+                        createTransaction({
+                          date,
+                          transactionHash,
+                          transactionId,
+                          type: "Expense",
+                          description: "Grant Auth",
+                          feeAmount: await getFees(tx),
+                        })
+                      )
+                    );
+                  }
+                }
+              }
+            }
+          }
+
+          break;
+        }
+        case "/cosmos.authz.v1beta1.MsgRevoke": {
+          processed = true;
+          for (const log of logs) {
+            for (const event of log.events) {
+              if (event.type === "cosmos.authz.v1beta1.EventRevoke") {
+                for (const attr of event.attributes) {
+                  if (attr.key === "granter" && attr.value.includes(address)) {
+                    transactions.push(
+                      ...transformTransaction(
+                        createTransaction({
+                          date,
+                          transactionHash,
+                          transactionId,
+                          type: "Expense",
+                          description: "Revoke Auth",
+                          feeAmount: await getFees(tx),
+                        })
+                      )
+                    );
+                  }
+                }
+              }
+            }
+          }
+          break;
+        }
         default: {
           break;
         }
@@ -809,7 +886,7 @@ async function processTransaction(
   if (!processed) {
     // if any transactions weren't processed, will end up here
     // most of unprocessed tx will be MsgAcknowledgements
-    // console.log(Object.keys(msgTypeGroup));
+    console.log(Object.keys(msgTypeGroup));
   }
 
   return transactions.map((tx) => Object.values(tx).join(",") + "\n").join("");

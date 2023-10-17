@@ -13,8 +13,8 @@
   "dependencies": {
     "csv-parser": "^3.0.0",
     "csv-stringify": "^6.4.4",
-    "currency.js": "^2.0.4",
     "date-fns": "^2.30.0",
+    "js-big-decimal": "^2.0.4",
     "stream-chain": "^2.2.5",
     "stream-json": "^1.8.0"
   }

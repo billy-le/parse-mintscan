@@ -3,16 +3,16 @@ lockfileVersion: 5.4
 specifiers:
   csv-parser: ^3.0.0
   csv-stringify: ^6.4.4
-  currency.js: ^2.0.4
   date-fns: ^2.30.0
+  js-big-decimal: ^2.0.4
   stream-chain: ^2.2.5
   stream-json: ^1.8.0
 
 dependencies:
   csv-parser: 3.0.0
   csv-stringify: 6.4.4
-  currency.js: 2.0.4
   date-fns: 2.30.0
+  js-big-decimal: 2.0.4
   stream-chain: 2.2.5
   stream-json: 1.8.0
 
@@ -37,16 +37,15 @@ packages:
     resolution: {integrity: sha512-NDshLupGa7gp4UG4sSNIqwYJqgSwvds0SvENntxoVoVvTzXcrHvd5gG2MWpbRpSNvk59dlmIe1IwNvSxN4IVmg==}
     dev: false
 
-  /currency.js/2.0.4:
-    resolution: {integrity: sha512-6/OplJYgJ0RUlli74d93HJ/OsKVBi8lB1+Z6eJYS1YZzBuIp4qKKHpJ7ad+GvTlWmLR/hLJOWTykN5Nm8NJ7+w==}
-    engines: {node: '>=4'}
-    dev: false
-
   /date-fns/2.30.0:
     resolution: {integrity: sha512-fnULvOpxnC5/Vg3NCiWelDsLiUc9bRwAPs/+LfTLNvetFCtCTN+yQz15C/fs4AwX1R9K5GLtLfn8QW+dWisaAw==}
     engines: {node: '>=0.11'}
     dependencies:
       '@babel/runtime': 7.23.1
+    dev: false
+
+  /js-big-decimal/2.0.4:
+    resolution: {integrity: sha512-y2IkNqwCqJyUVkiW/ddqxDAzCojoIKKBHIXBGEprtEs+93Zk64Y2ZWHt1MzTRM+ASpKdOurYLcss4BX25bkGyQ==}
     dev: false
 
   /minimist/1.2.8:
