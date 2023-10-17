@@ -5,17 +5,24 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node --watch index.js"
+    "dev": "bun run --watch index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "chain-registry": "^1.20.0",
     "csv-parser": "^3.0.0",
     "csv-stringify": "^6.4.4",
     "date-fns": "^2.30.0",
     "js-big-decimal": "^2.0.4",
     "stream-chain": "^2.2.5",
     "stream-json": "^1.8.0"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
   }
 }
