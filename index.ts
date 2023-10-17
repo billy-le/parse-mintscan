@@ -13,48 +13,6 @@ const network = "cosmos";
 const csvFilename = `./csv/${network}_data.csv`;
 const timeoutFilename = "timeout_txs.txt";
 
-// fetch("https://chains.cosmos.directory/")
-//   .then((res) => {
-//     if (res.ok) {
-//       return res.json();
-//     } else {
-//       throw new Error();
-//     }
-//   })
-//   .then(async (data) => {
-//     const d = await fs.promises.readFile("ibc-denominations.json");
-//     let denoms = JSON.parse(d.toString());
-
-//     for (const { denom, symbol, assets, decimals } of data.chains) {
-//       if (!denoms[denom]) {
-//         denoms[denom] = { symbol, decimals };
-//       }
-
-//       if (assets) {
-//         for (const { denom, symbol, decimals } of assets) {
-//           if (!denoms[denom]) {
-//             denoms[denom] = { symbol, decimals };
-//           }
-//         }
-//       }
-//     }
-
-//     denoms = Object.keys(denoms)
-//       .sort()
-//       .reduce((acc, key) => {
-//         acc[key] = denoms[key];
-//         return acc;
-//       }, {});
-
-//     await fs.promises.writeFile(
-//       "ibc-denominations.json",
-//       JSON.stringify(denoms, null, 2)
-//     );
-//   })
-//   .catch((err) => {
-//     console.log(err);
-//   });
-
 chain([
   fs.createReadStream("./headers/koinly.txt"),
   (data) => {
