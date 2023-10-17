@@ -9,7 +9,7 @@ const csvStringify = require("csv-stringify/sync");
 const walletAddress = process.argv[2];
 if (!walletAddress) throw new Error("no wallet provided as argument");
 
-const network = "evmos";
+const network = "juno";
 const csvFilename = `./csv/${network}_data.csv`;
 const timeoutFilename = "timeout_txs.txt";
 

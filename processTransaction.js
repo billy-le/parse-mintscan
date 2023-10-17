@@ -6,7 +6,7 @@ const { default: bigDecimal } = require("js-big-decimal");
 const transformTransaction = require("./transactions-transformers/koinly");
 
 const execPromise = util.promisify(exec);
-const precision = 18;
+const precision = 6;
 const denominator = Math.pow(10, precision);
 
 function getAssetInfo(asset) {
@@ -72,7 +72,7 @@ function createTransaction({
   sentAmount = "",
   receivedAsset = "",
   receivedAmount = "",
-  feeAsset = "EVMOS",
+  feeAsset = "JUNO",
   feeAmount = "",
   marketValueCurrency = "",
   marketValue = "",
@@ -182,9 +182,14 @@ async function processTransaction(
           for (const log of logs) {
             for (const evt of log.events) {
               if (evt.type == "transfer") {
+                const keys = new Set();
+                evt.attributes.forEach(({ key }) => {
+                  keys.add(key);
+                });
                 const groups = [];
-                for (let i = 0; i < evt.attributes.length; i += 3) {
-                  const group = evt.attributes.slice(i, i + 3);
+                for (let i = 0; i < evt.attributes.length; i += keys.size) {
+                  const group = evt.attributes.slice(i, i + keys.size);
+
                   const recipient = group[0];
                   const sender = group[1];
                   const amount = group[2];
@@ -271,9 +276,13 @@ async function processTransaction(
           for (const log of logs) {
             for (const evt of log.events) {
               if (evt.type === "transfer") {
+                const keys = new Set();
+                evt.attributes.forEach(({ key }) => {
+                  keys.add(key);
+                });
                 const groups = [];
-                for (let i = 0; i < evt.attributes.length; i += 3) {
-                  const group = evt.attributes.slice(i, i + 3);
+                for (let i = 0; i < evt.attributes.length; i += keys.size) {
+                  const group = evt.attributes.slice(i, i + keys.size);
                   const recipient = group[0];
                   const sender = group[1];
                   const amount = group[2];
@@ -364,9 +373,13 @@ async function processTransaction(
           for (const log of logs) {
             for (const evt of log.events) {
               if (evt.type === "transfer") {
+                const keys = new Set();
+                evt.attributes.forEach(({ key }) => {
+                  keys.add(key);
+                });
                 const groups = [];
-                for (let i = 0; i < evt.attributes.length; i += 3) {
-                  const group = evt.attributes.slice(i, i + 3);
+                for (let i = 0; i < evt.attributes.length; i += keys.size) {
+                  const group = evt.attributes.slice(i, i + keys.size);
                   const recipient = group[0];
                   const sender = group[1];
                   const amount = group[2];
@@ -495,6 +508,7 @@ async function processTransaction(
 
           for (const msgType in msgTypeGroup) {
             switch (msgType) {
+              case "/ibc.core.client.v1.MsgUpdateClient":
               case "/ibc.core.channel.v1.MsgAcknowledgement": {
                 // not used by end consumer
                 break;
@@ -536,10 +550,21 @@ async function processTransaction(
                     for (const log of logs) {
                       for (const event of log.events) {
                         if (event.type === "transfer") {
-                          let groups = [];
+                          const keys = new Set();
+                          event.attributes.forEach(({ key }) => {
+                            keys.add(key);
+                          });
+                          const groups = [];
 
-                          for (let i = 0; i < event.attributes.length; i += 3) {
-                            const group = event.attributes.slice(i, i + 3);
+                          for (
+                            let i = 0;
+                            i < event.attributes.length;
+                            i += keys.size
+                          ) {
+                            const group = event.attributes.slice(
+                              i,
+                              i + keys.size
+                            );
                             const recipient = group[0];
                             const sender = group[1];
                             const amount = group[2];
@@ -589,6 +614,7 @@ async function processTransaction(
                 break;
               }
               default: {
+                console.log(msgType);
                 break;
               }
             }
@@ -876,6 +902,174 @@ async function processTransaction(
           }
           break;
         }
+        case "/cosmwasm.wasm.v1.MsgExecuteContract": {
+          // for (const msg of msgTypeGroup[type]) {
+          //   const { sender, contract, funds } = msg;
+          //   const data = JSON.parse(msg["msg__@stringify"]);
+          //   if (funds.length) {
+          //   }
+          //   // console.log(data);
+          // }
+          // for (const log of logs) {
+          //   for (const event of log.events) {
+          //     if (event.type === "wasm") {
+          //       const groups = [];
+          //       let contractIndexes = [];
+          //       for (let i = 0; i < event.attributes.length; i++) {
+          //         const attr = event.attributes[i];
+
+          //         if (attr.key == "_contract_address") {
+          //           contractIndexes.push(i);
+          //         }
+          //       }
+
+          //       for (let i = 0; i < contractIndexes.length; i++) {
+          //         const start = contractIndexes[i];
+          //         const end = contractIndexes[i + 1];
+          //         const group = event.attributes.slice(start, end);
+          //         groups.push(group);
+          //       }
+
+          //       for (const group of groups) {
+          //         const action = group.find(({ key }) => key === "action");
+          //         const swap = group.find(({ key }) => key === "native_sold");
+          //         const liquidity = group.find(
+          //           ({ key }) => key === "liquidity_received"
+          //         );
+          //         const contractAddress = group.find(
+          //           ({ key }) => key === "_contract_address"
+          //         );
+          //         const file = await fs.promises.readFile(
+          //           "./smart-contracts/juno.json"
+          //         );
+          //         const smartContracts = JSON.parse(file.toString());
+
+          //         if (!smartContracts[contractAddress.value]) {
+          //           const data = await fetch(
+          //             `https://lcd-juno.validavia.me/cosmwasm/wasm/v1/contract/${contractAddress.value}`,
+          //             {
+          //               headers: {
+          //                 accept: "application/json",
+          //               },
+          //             }
+          //           ).then((res) => {
+          //             if (res.ok) {
+          //               return res.json();
+          //             }
+          //             return undefined;
+          //           });
+
+          //           if (data) {
+          //             smartContracts[contractAddress.value] = data;
+
+          //             await fs.promises.writeFile(
+          //               "./smart-contracts/juno.json",
+          //               JSON.stringify(smartContracts, null, 2)
+          //             );
+          //           }
+          //         }
+
+          //         if (action?.value) {
+          //           switch (action.value) {
+          //             case "delegate": {
+          //               transactions.push(
+          //                 ...transformTransaction(
+          //                   createTransaction({
+          //                     date,
+          //                     transactionHash,
+          //                     transactionId,
+          //                     feeAmount: await getFees(tx),
+          //                     description: `Delegate`,
+          //                   })
+          //                 )
+          //               );
+
+          //               break;
+          //             }
+          //             case "bond": {
+          //               break;
+          //             }
+          //             case "withdraw_rewards": {
+          //               break;
+          //             }
+          //             case "transfer": {
+          //               break;
+          //             }
+          //             case "claim": {
+          //               break;
+          //             }
+          //             case "vote": {
+          //               break;
+          //             }
+          //             case "send": {
+          //               break;
+          //             }
+          //             case "stake": {
+          //               break;
+          //             }
+          //             case "unstake": {
+          //               break;
+          //             }
+          //             case "increase_allowance": {
+          //               break;
+          //             }
+          //             case "transfer_from": {
+          //               break;
+          //             }
+          //             case "mint": {
+          //               break;
+          //             }
+          //             default: {
+          //               console.log(action.value);
+          //               break;
+          //             }
+          //           }
+          //         } else if (swap) {
+          //           const bought = group.find(
+          //             ({ key }) => key === "token_bought"
+          //           );
+          //           const token = smartContracts[contractAddress.value];
+
+          //           transactions.push(
+          //             ...transformTransaction(
+          //               createTransaction({
+          //                 date,
+          //                 transactionHash,
+          //                 transactionId,
+          //                 type: "Swap",
+          //                 sentAmount: bigDecimal.divide(
+          //                   swap.value,
+          //                   getDenominator(precision),
+          //                   precision
+          //                 ),
+          //                 sentAsset: token.contract_info.label,
+          //                 receivedAmount: bigDecimal.divide(
+          //                   bought.value,
+          //                   getDenominator(precision),
+          //                   precision
+          //                 ),
+          //                 receivedAsset: "JUNO",
+          //                 feeAmount: await getFees(tx),
+          //               })
+          //             )
+          //           );
+          //         } else if (liquidity) {
+          //           const token1 = group.find(
+          //             ({ key }) => key === "token1_amount"
+          //           ); // atom
+          //           const token2 = group.find(
+          //             ({ key }) => key === "token1_amount"
+          //           ); // juno
+          //         } else {
+          //           console.log(group);
+          //         }
+          //       }
+          //     } else {
+          //     }
+          //   }
+          // }
+          break;
+        }
         default: {
           break;
         }
@@ -886,7 +1080,7 @@ async function processTransaction(
   if (!processed) {
     // if any transactions weren't processed, will end up here
     // most of unprocessed tx will be MsgAcknowledgements
-    console.log(Object.keys(msgTypeGroup));
+    // console.log(Object.keys(msgTypeGroup));
   }
 
   return transactions.map((tx) => Object.values(tx).join(",") + "\n").join("");
