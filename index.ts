@@ -5,11 +5,11 @@ import { streamArray } from "stream-json/streamers/StreamArray";
 import csvParser from "csv-parser";
 import { stringify as csvStringify } from "csv-stringify/sync";
 import processTransaction from "./processTransaction.ts";
-
+import bigDecimal from "js-big-decimal";
 const walletAddress = process.argv[2];
 if (!walletAddress) throw new Error("no wallet provided as argument");
 
-const network = "cosmos";
+const network = "evmos";
 const csvFilename = `./csv/${network}_data.csv`;
 const timeoutFilename = "timeout_txs.txt";
 
@@ -79,5 +79,74 @@ pipeline.on("end", async () => {
       fs.unlink(timeoutFilename, (err) => {
         if (err) return;
       });
+
+      const balanceSheet: Record<
+        string,
+        { sent: string; received: string; fees: string }
+      > = {};
+
+      fs.createReadStream(`./csv/${network}_data.csv`)
+        .pipe(csvParser())
+        .on("data", (data) => {
+          const date = data.Date;
+          const sentAsset = data["Sent Currency"];
+          const sentAmount = data["Sent Amount"];
+          const receivedAmount = data["Received Amount"];
+          const receivedAsset = data["Received Currency"];
+          const feeAmount = data["Fee Amount"];
+          const feeAsset = data["Fee Currency"];
+
+          if (sentAsset) {
+            if (!balanceSheet[sentAsset]) {
+              balanceSheet[sentAsset] = {
+                sent: "0",
+                fees: "0",
+                received: "0",
+              };
+            }
+
+            balanceSheet[sentAsset] = {
+              ...balanceSheet[sentAsset],
+              sent: bigDecimal.add(balanceSheet?.[sentAsset].sent, sentAmount),
+            };
+          }
+
+          if (feeAsset) {
+            if (!balanceSheet[feeAsset]) {
+              balanceSheet[feeAsset] = {
+                sent: "0",
+                fees: "0",
+                received: "0",
+              };
+            }
+
+            balanceSheet[feeAsset] = {
+              ...balanceSheet[feeAsset],
+              fees: bigDecimal.add(balanceSheet?.[feeAsset].fees, feeAmount),
+            };
+          }
+
+          if (receivedAsset) {
+            if (!balanceSheet[receivedAsset]) {
+              balanceSheet[receivedAsset] = {
+                sent: "0",
+                fees: "0",
+                received: "0",
+              };
+            }
+
+            balanceSheet[receivedAsset] = {
+              ...balanceSheet[receivedAsset],
+              received: bigDecimal.add(
+                balanceSheet?.[receivedAsset].received,
+                receivedAmount
+              ),
+            };
+          }
+        })
+        .on("end", () => {
+          console.log("Your balance is:");
+          console.log(balanceSheet);
+        });
     });
 });

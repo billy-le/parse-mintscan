@@ -1,9 +1,21 @@
 import fs from "fs";
 import util from "util";
 import { exec } from "child_process";
-import { format as dateFormat, parseISO } from "date-fns";
+import { format as dateFormat, parseISO, isSameDay } from "date-fns";
 import bigDecimal from "js-big-decimal";
 import transformTransaction from "./transactions-transformers/koinly.ts";
+
+type TxType = Record<
+  string,
+  {
+    body: {
+      messages: any[];
+    };
+    auth_info: {
+      fee: { amount: Array<{ denom: string; amount: string }> };
+    };
+  }
+>;
 
 const execPromise = util.promisify(exec);
 const precision = 6;
@@ -17,8 +29,14 @@ function getDenominator(decimals: number) {
   return Math.pow(10, decimals);
 }
 
-function getModuleType(mod: any) {
-  return mod[mod["@type"].replaceAll(".", "-")];
+function getModuleType(mod: Record<"@type", string> | TxType): {
+  body: {
+    messages: any[];
+  };
+  auth_info: { fee: { amount: Array<{ denom: string; amount: string }> } };
+} {
+  const type = (mod["@type"] as string).replaceAll(".", "-");
+  return (mod as TxType)[type];
 }
 
 async function getIbcDenomination(pathHash: string) {
@@ -75,7 +93,7 @@ function createTransaction({
   sentAmount = "",
   receivedAsset = "",
   receivedAmount = "",
-  feeAsset = "ATOM",
+  feeAsset = "EVMOS",
   feeAmount = "",
   marketValueCurrency = "",
   marketValue = "",
@@ -125,10 +143,19 @@ async function processTransaction(
     txhash: string;
     id: string;
     timestamp: string;
-    tx: Record<string, any>;
+    tx: Record<"@type", string> | TxType;
     logs: {
       events: Array<{
-        type: string;
+        type:
+          | "delegate"
+          | "coin_received"
+          | "transfer"
+          | "coin_spent"
+          | "message"
+          | "claim"
+          | "withdraw_rewards"
+          | "cosmos.authz.v1beta1.EventGrant"
+          | "cosmos.authz.v1beta1.EventRevoke";
         attributes: Array<{ key: string; value: string }>;
       }>;
     }[];
@@ -142,7 +169,7 @@ async function processTransaction(
 
   const msgTypeGroup: Record<string, Array<any>> = {};
 
-  body.messages.forEach((message: any) => {
+  body.messages.forEach((message) => {
     const msgType = message["@type"];
     if (!msgTypeGroup[msgType]) {
       msgTypeGroup[msgType] = [];
@@ -341,6 +368,31 @@ async function processTransaction(
                     );
                   }
                 }
+              } else {
+                // if (evt.type === "claim") {
+                //   const [amount, _token] = getAssetInfo(
+                //     evt.attributes[1].value
+                //   );
+                //   const token = await getIbcDenomination(_token);
+                //   transactions.push(
+                //     ...transformTransaction(
+                //       createTransaction({
+                //         date,
+                //         transactionHash,
+                //         transactionId,
+                //         type: "Depost",
+                //         description: "Claim Airdrop",
+                //         feeAsset: "",
+                //         receivedAmount: bigDecimal.divide(
+                //           amount,
+                //           getDenominator(token.decimals),
+                //           token.decimals
+                //         ),
+                //         receivedAsset: token.symbol,
+                //       })
+                //     )
+                //   );
+                // }
               }
             }
           }
@@ -761,6 +813,7 @@ async function processTransaction(
           for (const msg of msgTypeGroup[type]) {
             for (const { denom, amount } of msg.deposit_coins) {
               const token = await getIbcDenomination(denom);
+              console.log(">>>>>!", token.symbol, amount);
 
               transactions.push(
                 ...transformTransaction(
@@ -1117,7 +1170,6 @@ async function processTransaction(
   if (!processed) {
     // if any transactions weren't processed, will end up here
     // most of unprocessed tx will be MsgAcknowledgements
-    // console.log(Object.keys(msgTypeGroup));
   }
 
   return transactions.map((tx) => Object.values(tx).join(",") + "\n").join("");
