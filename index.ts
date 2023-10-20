@@ -9,7 +9,7 @@ import bigDecimal from "js-big-decimal";
 const walletAddress = process.argv[2];
 if (!walletAddress) throw new Error("no wallet provided as argument");
 
-const network = "evmos";
+const network = "juno";
 const csvFilename = `./csv/${network}_data.csv`;
 const timeoutFilename = "timeout_txs.txt";
 
@@ -44,7 +44,7 @@ const pipeline = chain([
 ]);
 
 pipeline.on("end", async () => {
-  console.log(msgTypes);
+  // console.log(msgTypes);
   console.log("data.csv created", `\nprocessed ${txCount} transactions`);
 
   // remove txs from timeouts and meta from csv
@@ -82,13 +82,12 @@ pipeline.on("end", async () => {
 
       const balanceSheet: Record<
         string,
-        { sent: string; received: string; fees: string }
+        { sent: string; received: string; fees: string; endingBalance: string }
       > = {};
 
       fs.createReadStream(`./csv/${network}_data.csv`)
         .pipe(csvParser())
         .on("data", (data) => {
-          const date = data.Date;
           const sentAsset = data["Sent Currency"];
           const sentAmount = data["Sent Amount"];
           const receivedAmount = data["Received Amount"];
@@ -102,6 +101,7 @@ pipeline.on("end", async () => {
                 sent: "0",
                 fees: "0",
                 received: "0",
+                endingBalance: "0",
               };
             }
 
@@ -117,6 +117,7 @@ pipeline.on("end", async () => {
                 sent: "0",
                 fees: "0",
                 received: "0",
+                endingBalance: "0",
               };
             }
 
@@ -132,6 +133,7 @@ pipeline.on("end", async () => {
                 sent: "0",
                 fees: "0",
                 received: "0",
+                endingBalance: "0",
               };
             }
 
@@ -142,6 +144,15 @@ pipeline.on("end", async () => {
                 receivedAmount
               ),
             };
+          }
+
+          for (const token in balanceSheet) {
+            const tokenMeta = balanceSheet[token];
+            const outflow = bigDecimal.add(tokenMeta.sent, tokenMeta.fees);
+            balanceSheet[token].endingBalance = bigDecimal.subtract(
+              tokenMeta.received,
+              outflow
+            );
           }
         })
         .on("end", () => {

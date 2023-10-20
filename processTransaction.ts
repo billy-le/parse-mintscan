@@ -1,7 +1,8 @@
 import fs from "fs";
 import util from "util";
 import { exec } from "child_process";
-import { format as dateFormat, parseISO, isSameDay } from "date-fns";
+import { format as dateFormat, parseISO } from "date-fns";
+
 import bigDecimal from "js-big-decimal";
 import transformTransaction from "./transactions-transformers/koinly.ts";
 
@@ -93,7 +94,7 @@ function createTransaction({
   sentAmount = "",
   receivedAsset = "",
   receivedAmount = "",
-  feeAsset = "EVMOS",
+  feeAsset = "JUNO",
   feeAmount = "",
   marketValueCurrency = "",
   marketValue = "",
@@ -139,11 +140,13 @@ async function processTransaction(
     timestamp,
     tx,
     logs,
+    memo,
   }: {
     txhash: string;
     id: string;
     timestamp: string;
     tx: Record<"@type", string> | TxType;
+    memo: string;
     logs: {
       events: Array<{
         type:
@@ -154,6 +157,7 @@ async function processTransaction(
           | "message"
           | "claim"
           | "withdraw_rewards"
+          | "wasm"
           | "cosmos.authz.v1beta1.EventGrant"
           | "cosmos.authz.v1beta1.EventRevoke";
         attributes: Array<{ key: string; value: string }>;
@@ -369,30 +373,6 @@ async function processTransaction(
                   }
                 }
               } else {
-                // if (evt.type === "claim") {
-                //   const [amount, _token] = getAssetInfo(
-                //     evt.attributes[1].value
-                //   );
-                //   const token = await getIbcDenomination(_token);
-                //   transactions.push(
-                //     ...transformTransaction(
-                //       createTransaction({
-                //         date,
-                //         transactionHash,
-                //         transactionId,
-                //         type: "Depost",
-                //         description: "Claim Airdrop",
-                //         feeAsset: "",
-                //         receivedAmount: bigDecimal.divide(
-                //           amount,
-                //           getDenominator(token.decimals),
-                //           token.decimals
-                //         ),
-                //         receivedAsset: token.symbol,
-                //       })
-                //     )
-                //   );
-                // }
               }
             }
           }
@@ -546,6 +526,7 @@ async function processTransaction(
         }
         case "/ibc.applications.transfer.v1.MsgTransfer": {
           processed = true;
+
           const messages = msgTypeGroup[type];
           for (const msg of messages) {
             const {
@@ -571,10 +552,22 @@ async function processTransaction(
                 token.decimals
               );
               if (sender === address) {
+                try {
+                  const json = JSON.parse(receiver);
+                  if (json?.autopilot?.receiver) {
+                    transaction.description = `Sent to ${json.autopilot.receiver}`;
+                  }
+                } catch (err) {
+                  transaction.description = `Sent to ${receiver}`;
+                }
                 transaction.sentAmount = transferAmount;
                 transaction.sentAsset = token.symbol;
                 transaction.type = "Transfer";
               } else if (receiver === address) {
+                try {
+                } catch (err) {
+                  transaction.description = `Received from ${sender}`;
+                }
                 transaction.receivedAmount = transferAmount;
                 transaction.receivedAsset = token.symbol;
                 transaction.type = "Deposit";
@@ -589,9 +582,63 @@ async function processTransaction(
 
           for (const msgType in msgTypeGroup) {
             switch (msgType) {
-              case "/ibc.core.client.v1.MsgUpdateClient":
+              case "/ibc.core.client.v1.MsgUpdateClient": {
+                break;
+              }
               case "/ibc.core.channel.v1.MsgAcknowledgement": {
+                processed = true;
                 // not used by end consumer
+                for (const log of logs) {
+                  for (const event of log.events) {
+                    if (event.type === "transfer") {
+                      const keys = new Set<string>();
+                      event.attributes.forEach(({ key }) => keys.add(key));
+                      const groups: Array<{
+                        recipient: string;
+                        sender: string;
+                        amount: string;
+                      }> = [];
+                      for (
+                        let i = 0;
+                        i < event.attributes.length;
+                        i += keys.size
+                      ) {
+                        const [recipient, sender, amount] =
+                          event.attributes.slice(i, i + keys.size);
+                        if (recipient.value === address) {
+                          groups.push({
+                            recipient: recipient.value,
+                            sender: sender.value,
+                            amount: amount.value,
+                          });
+                        } else if (sender.value === address) {
+                        }
+                      }
+
+                      for (const { sender, recipient, amount } of groups) {
+                        const [value, denom] = getAssetInfo(amount);
+                        const token = await getIbcDenomination(denom);
+                        transactions.push(
+                          ...transformTransaction(
+                            createTransaction({
+                              date,
+                              transactionHash,
+                              transactionId,
+                              type: "Deposit",
+                              description: "Received from " + sender,
+                              receivedAmount: bigDecimal.divide(
+                                value,
+                                getDenominator(token.decimals),
+                                token.decimals
+                              ),
+                              receivedAsset: token.symbol,
+                            })
+                          )
+                        );
+                      }
+                    }
+                  }
+                }
                 break;
               }
               case "/ibc.core.channel.v1.MsgTimeout": {
@@ -622,73 +669,68 @@ async function processTransaction(
               }
               case "/ibc.core.channel.v1.MsgRecvPacket": {
                 processed = true;
-                const msgPackets = msgTypeGroup[msgType];
-                for (const msgPacket of msgPackets) {
-                  const { receiver } =
-                    msgPacket.packet["data__@parse__@transfer"];
 
-                  if (receiver === address) {
-                    for (const log of logs) {
-                      for (const event of log.events) {
-                        if (event.type === "transfer") {
-                          const keys = new Set();
-                          event.attributes.forEach(({ key }) => {
-                            keys.add(key);
+                const groups = [];
+
+                for (const log of logs) {
+                  for (const event of log.events) {
+                    if (event.type === "transfer") {
+                      const keys = new Set();
+                      event.attributes.forEach(({ key }) => {
+                        keys.add(key);
+                      });
+
+                      for (
+                        let i = 0;
+                        i < event.attributes.length;
+                        i += keys.size
+                      ) {
+                        const group = event.attributes.slice(i, i + keys.size);
+                        const recipient = group[0];
+                        const sender = group[1];
+                        const amount = group[2];
+                        if (recipient.value === address) {
+                          groups.push({
+                            recipient: recipient.value,
+                            sender: sender.value,
+                            amount: amount.value,
                           });
-                          const groups = [];
-
-                          for (
-                            let i = 0;
-                            i < event.attributes.length;
-                            i += keys.size
-                          ) {
-                            const group = event.attributes.slice(
-                              i,
-                              i + keys.size
-                            );
-                            const recipient = group[0];
-                            const sender = group[1];
-                            const amount = group[2];
-                            if (recipient.value === address) {
-                              groups.push({
-                                recipient: recipient.value,
-                                sender: sender.value,
-                                amount: amount.value,
-                              });
-                            }
-                          }
-
-                          for (const { amount } of groups) {
-                            const assets = amount.split(",");
-                            for (const asset of assets) {
-                              const [assetAmount, assetDenom] = asset
-                                .split(/^(\d+)(.+)/)
-                                .filter((x) => x);
-                              const token = await getIbcDenomination(
-                                assetDenom
-                              );
-
-                              transactions.push(
-                                ...transformTransaction(
-                                  createTransaction({
-                                    date,
-                                    transactionHash,
-                                    transactionId,
-                                    receivedAmount: bigDecimal.divide(
-                                      assetAmount,
-                                      getDenominator(token.decimals),
-                                      token.decimals
-                                    ),
-                                    receivedAsset: token.symbol,
-                                    type: "Deposit",
-                                    feeAsset: "",
-                                  })
-                                )
-                              );
-                            }
-                          }
+                        } else if (sender.value === address) {
+                          console.log({ sender, recipient, amount });
                         }
                       }
+                    }
+                  }
+                }
+
+                for (const { amount, recipient, sender } of groups) {
+                  const assets = amount.split(",");
+                  for (const asset of assets) {
+                    const [assetAmount, assetDenom] = asset
+                      .split(/^(\d+)(.+)/)
+                      .filter((x) => x);
+                    const token = await getIbcDenomination(assetDenom);
+
+                    if (recipient === address) {
+                      transactions.push(
+                        ...transformTransaction(
+                          createTransaction({
+                            date,
+                            transactionHash,
+                            transactionId,
+                            receivedAmount: bigDecimal.divide(
+                              assetAmount,
+                              getDenominator(token.decimals),
+                              token.decimals
+                            ),
+                            receivedAsset: token.symbol,
+                            type: "Deposit",
+                            feeAsset: "",
+                          })
+                        )
+                      );
+                    } else {
+                      console.log(amount);
                     }
                   }
                 }
@@ -707,7 +749,6 @@ async function processTransaction(
           processed = true;
           for (const msg of msgTypeGroup[type]) {
             const { from_address, to_address, amount: amounts } = msg;
-
             for (const { denom, amount } of amounts) {
               const token = await getIbcDenomination(denom);
               const tokenAmount = bigDecimal.divide(
@@ -813,7 +854,6 @@ async function processTransaction(
           for (const msg of msgTypeGroup[type]) {
             for (const { denom, amount } of msg.deposit_coins) {
               const token = await getIbcDenomination(denom);
-              console.log(">>>>>!", token.symbol, amount);
 
               transactions.push(
                 ...transformTransaction(
@@ -876,6 +916,7 @@ async function processTransaction(
                     rewards.push(reward);
                   }
                 }
+              } else {
               }
             }
           }
@@ -925,17 +966,17 @@ async function processTransaction(
               )
             );
           }
-          transactions.push(
-            ...transformTransaction(
-              createTransaction({
-                date,
-                transactionHash,
-                transactionId,
-                feeAmount: await getFees(tx),
-                type: "Expense",
-              })
-            )
-          );
+          // transactions.push(
+          //   ...transformTransaction(
+          //     createTransaction({
+          //       date,
+          //       transactionHash,
+          //       transactionId,
+          //       feeAmount: await getFees(tx),
+          //       type: "Expense",
+          //     })
+          //   )
+          // );
           break;
         }
         case "/cosmos.authz.v1beta1.MsgGrant": {
@@ -993,171 +1034,285 @@ async function processTransaction(
           break;
         }
         case "/cosmwasm.wasm.v1.MsgExecuteContract": {
-          // for (const msg of msgTypeGroup[type]) {
-          //   const { sender, contract, funds } = msg;
-          //   const data = JSON.parse(msg["msg__@stringify"]);
-          //   if (funds.length) {
-          //   }
-          //   // console.log(data);
-          // }
-          // for (const log of logs) {
-          //   for (const event of log.events) {
-          //     if (event.type === "wasm") {
-          //       const groups = [];
-          //       let contractIndexes = [];
-          //       for (let i = 0; i < event.attributes.length; i++) {
-          //         const attr = event.attributes[i];
+          for (const log of logs) {
+            for (const event of log.events) {
+              if (event.type === "wasm") {
+                const groups = [];
+                let contractIndexes = [];
 
-          //         if (attr.key == "_contract_address") {
-          //           contractIndexes.push(i);
-          //         }
-          //       }
+                for (let i = 0; i < event.attributes.length; i++) {
+                  const attr = event.attributes[i];
 
-          //       for (let i = 0; i < contractIndexes.length; i++) {
-          //         const start = contractIndexes[i];
-          //         const end = contractIndexes[i + 1];
-          //         const group = event.attributes.slice(start, end);
-          //         groups.push(group);
-          //       }
+                  if (attr.key == "_contract_address") {
+                    contractIndexes.push(i);
+                  }
+                }
 
-          //       for (const group of groups) {
-          //         const action = group.find(({ key }) => key === "action");
-          //         const swap = group.find(({ key }) => key === "native_sold");
-          //         const liquidity = group.find(
-          //           ({ key }) => key === "liquidity_received"
-          //         );
-          //         const contractAddress = group.find(
-          //           ({ key }) => key === "_contract_address"
-          //         );
-          //         const file = await fs.promises.readFile(
-          //           "./smart-contracts/juno.json"
-          //         );
-          //         const smartContracts = JSON.parse(file.toString());
+                for (let i = 0; i < contractIndexes.length; i++) {
+                  const start = contractIndexes[i];
+                  const end = contractIndexes[i + 1];
+                  const group = event.attributes.slice(start, end);
+                  groups.push(group);
+                }
 
-          //         if (!smartContracts[contractAddress.value]) {
-          //           const data = await fetch(
-          //             `https://lcd-juno.validavia.me/cosmwasm/wasm/v1/contract/${contractAddress.value}`,
-          //             {
-          //               headers: {
-          //                 accept: "application/json",
-          //               },
-          //             }
-          //           ).then((res) => {
-          //             if (res.ok) {
-          //               return res.json();
-          //             }
-          //             return undefined;
-          //           });
+                for (const group of groups) {
+                  const action = group.find(({ key }) => key === "action");
+                  const swap = group.find(({ key }) => key === "native_sold");
+                  const liquidity = group.find(
+                    ({ key }) => key === "liquidity_received"
+                  );
+                  const contractAddress = group.find(
+                    ({ key }) => key === "_contract_address"
+                  );
 
-          //           if (data) {
-          //             smartContracts[contractAddress.value] = data;
+                  const file = await fs.promises.readFile(
+                    "./smart-contracts/juno.json"
+                  );
+                  const smartContracts = JSON.parse(file.toString());
 
-          //             await fs.promises.writeFile(
-          //               "./smart-contracts/juno.json",
-          //               JSON.stringify(smartContracts, null, 2)
-          //             );
-          //           }
-          //         }
+                  if (!smartContracts[contractAddress.value]) {
+                    const data = await fetch(
+                      `https://lcd-juno.validavia.me/cosmwasm/wasm/v1/contract/${contractAddress.value}`,
+                      {
+                        headers: {
+                          accept: "application/json",
+                        },
+                      }
+                    ).then((res) => {
+                      if (res.ok) {
+                        return res.json();
+                      }
+                      return undefined;
+                    });
 
-          //         if (action?.value) {
-          //           switch (action.value) {
-          //             case "delegate": {
-          //               transactions.push(
-          //                 ...transformTransaction(
-          //                   createTransaction({
-          //                     date,
-          //                     transactionHash,
-          //                     transactionId,
-          //                     feeAmount: await getFees(tx),
-          //                     description: `Delegate`,
-          //                   })
-          //                 )
-          //               );
+                    if (data) {
+                      smartContracts[contractAddress.value] = data;
 
-          //               break;
-          //             }
-          //             case "bond": {
-          //               break;
-          //             }
-          //             case "withdraw_rewards": {
-          //               break;
-          //             }
-          //             case "transfer": {
-          //               break;
-          //             }
-          //             case "claim": {
-          //               break;
-          //             }
-          //             case "vote": {
-          //               break;
-          //             }
-          //             case "send": {
-          //               break;
-          //             }
-          //             case "stake": {
-          //               break;
-          //             }
-          //             case "unstake": {
-          //               break;
-          //             }
-          //             case "increase_allowance": {
-          //               break;
-          //             }
-          //             case "transfer_from": {
-          //               break;
-          //             }
-          //             case "mint": {
-          //               break;
-          //             }
-          //             default: {
-          //               console.log(action.value);
-          //               break;
-          //             }
-          //           }
-          //         } else if (swap) {
-          //           const bought = group.find(
-          //             ({ key }) => key === "token_bought"
-          //           );
-          //           const token = smartContracts[contractAddress.value];
+                      await fs.promises.writeFile(
+                        "./smart-contracts/juno.json",
+                        JSON.stringify(smartContracts, null, 2)
+                      );
+                    }
+                  }
 
-          //           transactions.push(
-          //             ...transformTransaction(
-          //               createTransaction({
-          //                 date,
-          //                 transactionHash,
-          //                 transactionId,
-          //                 type: "Swap",
-          //                 sentAmount: bigDecimal.divide(
-          //                   swap.value,
-          //                   getDenominator(precision),
-          //                   precision
-          //                 ),
-          //                 sentAsset: token.contract_info.label,
-          //                 receivedAmount: bigDecimal.divide(
-          //                   bought.value,
-          //                   getDenominator(precision),
-          //                   precision
-          //                 ),
-          //                 receivedAsset: "JUNO",
-          //                 feeAmount: await getFees(tx),
-          //               })
-          //             )
-          //           );
-          //         } else if (liquidity) {
-          //           const token1 = group.find(
-          //             ({ key }) => key === "token1_amount"
-          //           ); // atom
-          //           const token2 = group.find(
-          //             ({ key }) => key === "token1_amount"
-          //           ); // juno
-          //         } else {
-          //           console.log(group);
-          //         }
-          //       }
-          //     } else {
-          //     }
-          //   }
-          // }
+                  if (action?.value) {
+                    switch (action.value) {
+                      case "delegate": {
+                        transactions.push(
+                          ...transformTransaction(
+                            createTransaction({
+                              date,
+                              transactionHash,
+                              transactionId,
+                              feeAmount: await getFees(tx),
+                              description: `Delegate`,
+                            })
+                          )
+                        );
+
+                        break;
+                      }
+                      case "bond": {
+                        break;
+                      }
+                      case "withdraw_rewards": {
+                        break;
+                      }
+                      case "transfer": {
+                        try {
+                          if (
+                            !smartContracts[contractAddress.value].token_info
+                          ) {
+                            const data = await fetch(
+                              `https://lcd-juno.validavia.me/cosmwasm/wasm/v1/contract/${contractAddress.value}/smart/eyJ0b2tlbl9pbmZvIjp7fX0=?encoding=UTF-8`
+                            ).then((res) => {
+                              if (res.ok) return res.json();
+                              return undefined;
+                            });
+
+                            if (data) {
+                              smartContracts[contractAddress.value].token_info =
+                                data;
+                              await fs.promises.writeFile(
+                                "./smart-contracts/juno.json",
+                                JSON.stringify(smartContracts, null, 2)
+                              );
+                            }
+                          }
+
+                          const tokenInfo =
+                            smartContracts[contractAddress.value].token_info;
+                          const sender = group.find(
+                            ({ key }) => key === "from"
+                          );
+                          const receiver = group.find(
+                            ({ key }) => key === "to"
+                          );
+                          const amount = group.find(
+                            ({ key }) => key === "amount"
+                          );
+                          const transaction = createTransaction({
+                            date,
+                            transactionHash,
+                            transactionId,
+                          });
+                          if (receiver?.value === address) {
+                            transaction.receivedAmount = bigDecimal.divide(
+                              amount.value,
+                              getDenominator(tokenInfo.decimals),
+                              tokenInfo.decimals
+                            );
+                            transaction.receivedAsset = tokenInfo.symbol;
+                            transaction.description = `Received from ${sender.value}`;
+                          } else if (sender?.value === address) {
+                            transaction.sentAmount = bigDecimal.divide(
+                              amount.value,
+                              getDenominator(tokenInfo.decimals),
+                              tokenInfo.decimals
+                            );
+                            transaction.sentAsset = tokenInfo.symbol;
+                            transaction.description = `Sent to ${receiver.value}`;
+                          }
+                          transactions.push(
+                            ...transformTransaction(transaction)
+                          );
+                        } catch (err) {
+                          console.log(err);
+                        }
+
+                        break;
+                      }
+                      case "claim": {
+                        const coinGroup = groups.find((group) =>
+                          group.find(({ value }) => value === "transfer")
+                        );
+                        const stage = groups
+                          .find((group) =>
+                            group.find(({ key }) => key === "stage")
+                          )
+                          ?.find((group) => group.key === "stage");
+                        const coinAddress = coinGroup?.find(
+                          ({ key }) => key === "_contract_address"
+                        );
+                        const amount = coinGroup?.find(
+                          ({ key }) => key === "amount"
+                        );
+                        const tokenInfo =
+                          smartContracts[coinAddress.value].token_info;
+                        const value = bigDecimal.divide(
+                          amount?.value,
+                          getDenominator(tokenInfo.decimals),
+                          tokenInfo.decimals
+                        );
+                        transactions.push(
+                          createTransaction({
+                            date,
+                            transactionHash,
+                            transactionId,
+                            description: `Claimed ${value} ${tokenInfo.symbol}${
+                              stage ? " Airdrop" : ""
+                            }`,
+                            feeAmount: await getFees(tx),
+                          })
+                        );
+                        break;
+                      }
+                      case "vote": {
+                        break;
+                      }
+                      case "send": {
+                        break;
+                      }
+                      case "stake": {
+                        break;
+                      }
+                      case "unstake": {
+                        break;
+                      }
+                      case "increase_allowance": {
+                        break;
+                      }
+                      case "transfer_from": {
+                        break;
+                      }
+                      case "mint": {
+                        break;
+                      }
+                      default: {
+                        console.log(action.value);
+                        break;
+                      }
+                    }
+                  } else if (swap) {
+                    const bought = group.find(
+                      ({ key }) => key === "token_bought"
+                    );
+                    const infoBase64 = Buffer.from('{"info": {}}', "utf-8");
+
+                    try {
+                      const data = await fetch(
+                        `https://lcd-juno.validavia.me/cosmwasm/wasm/v1/contract/${
+                          contractAddress.value
+                        }/smart/${infoBase64.toString("base64")}?encoding=UTF-8`
+                      ).then((res) => {
+                        if (res.ok) return res.json();
+                        return undefined;
+                      });
+
+                      if (data) {
+                        smartContracts[contractAddress.value].swap = data.data;
+                        await fs.promises.writeFile(
+                          "./smart-contracts/juno.json",
+                          JSON.stringify(smartContracts, null, 2)
+                        );
+                      }
+                    } catch (err) {
+                      console.log(err);
+                    }
+
+                    const token1 =
+                      smartContracts[contractAddress.value]?.swap.token1_denom;
+                    const token2 =
+                      smartContracts[contractAddress.value]?.swap.token2_denom;
+
+                    transactions.push(
+                      ...transformTransaction(
+                        createTransaction({
+                          date,
+                          transactionHash,
+                          transactionId,
+                          type: "Swap",
+                          sentAmount: bigDecimal.divide(
+                            swap.value,
+                            getDenominator(6),
+                            6
+                          ),
+                          sentAsset: "HULC",
+                          receivedAmount: bigDecimal.divide(
+                            bought.value,
+                            getDenominator(6),
+                            6
+                          ),
+                          receivedAsset: "JUNO",
+                          feeAmount: await getFees(tx),
+                        })
+                      )
+                    );
+                  } else if (liquidity) {
+                    const token1 = group.find(
+                      ({ key }) => key === "token1_amount"
+                    ); // atom
+                    const token2 = group.find(
+                      ({ key }) => key === "token1_amount"
+                    ); // juno
+                  } else {
+                    console.log(group);
+                  }
+                }
+              } else {
+              }
+            }
+          }
           break;
         }
         default: {

@@ -12,6 +12,12 @@
       },
       "ibc_port_id": "",
       "extension": null
+    },
+    "token_info": {
+      "name": "Wynd DAO Governance Token",
+      "symbol": "WYND",
+      "decimals": 6,
+      "total_supply": "126335000000000"
     }
   },
   "juno1sy9mlw47w44f94zea7g98y5ff4cvtc8rfv75jgwphlet83wlf4ssa050mv": {
@@ -87,6 +93,12 @@
       },
       "ibc_port_id": "",
       "extension": null
+    },
+    "token_info": {
+      "name": "MARBLE",
+      "symbol": "MARBLE",
+      "decimals": 3,
+      "total_supply": "20999000"
     }
   },
   "juno1r4pzw8f9z0sypct5l9j906d47z998ulwvhvqe5xdwgy8wf84583sxwh0pa": {
@@ -102,6 +114,12 @@
       },
       "ibc_port_id": "",
       "extension": null
+    },
+    "token_info": {
+      "name": "RACOON",
+      "symbol": "RAC",
+      "decimals": 6,
+      "total_supply": "923783339948"
     }
   },
   "juno18ujcn207dv8y6u7p7rg9uhhzcayy9w22f3jzcgctadfwwefc6kdqzdgnz5": {
@@ -162,6 +180,12 @@
       },
       "ibc_port_id": "",
       "extension": null
+    },
+    "token_info": {
+      "name": "Gelotto",
+      "symbol": "GLTO",
+      "decimals": 6,
+      "total_supply": "420690000000000"
     }
   },
   "juno12mxan2zrxj7ujlhhmcjtmvdkw3gken895w7ad6v3m0t4mvmthhpq23sumg": {
@@ -192,6 +216,12 @@
       },
       "ibc_port_id": "",
       "extension": null
+    },
+    "token_info": {
+      "name": "BlackHole",
+      "symbol": "HOLE",
+      "decimals": 6,
+      "total_supply": "159798750000000"
     }
   },
   "juno18ckrreffz9jwmkw84axsvncexfqt7gpgckskk0yy0vzwm9huqkyq6v78xu": {
@@ -207,6 +237,12 @@
       },
       "ibc_port_id": "",
       "extension": null
+    },
+    "token_info": {
+      "name": "WasmSwap_Liquidity_Token",
+      "symbol": "wslpt",
+      "decimals": 6,
+      "total_supply": "37530269308"
     }
   },
   "juno1ddulcgq7hjwal3jjx9n33x9rr0xf5j0p3je0j4kytt4uyrnk0uhq0ehcyh": {
@@ -267,6 +303,12 @@
       },
       "ibc_port_id": "",
       "extension": null
+    },
+    "token_info": {
+      "name": "RAW",
+      "symbol": "RAW",
+      "decimals": 6,
+      "total_supply": "856873279082370"
     }
   },
   "juno1vjc9p9k5jh6kxj272pwlwnl0nxty6lv5eszdlqvnlc4wdfgqxszq8wjled": {
@@ -327,6 +369,12 @@
       },
       "ibc_port_id": "",
       "extension": null
+    },
+    "token_info": {
+      "name": "BLOCK",
+      "symbol": "BLOCK",
+      "decimals": 6,
+      "total_supply": "380000000000000"
     }
   },
   "juno1ay840g97ngja9k0f9lnywqxwk49245snw69kpwz0ry9qv99q367q3m4x8v": {
@@ -387,6 +435,12 @@
       },
       "ibc_port_id": "",
       "extension": null
+    },
+    "token_info": {
+      "name": "HULCAT",
+      "symbol": "HULC",
+      "decimals": 6,
+      "total_supply": "4999999999999997"
     }
   },
   "juno16zn96yf3vnxengke3vcf6mg9x7qyppgsdh3dnnmvdd8hvtpw58wsrjuu56": {
@@ -402,6 +456,24 @@
       },
       "ibc_port_id": "",
       "extension": null
+    },
+    "token_info": {
+      "name": "HULCAT",
+      "symbol": "HULC",
+      "decimals": 6,
+      "total_supply": "4999999999999997"
+    },
+    "swap": {
+      "token1_reserve": "64729521",
+      "token1_denom": {
+        "native": "ujuno"
+      },
+      "token2_reserve": "192513672767467",
+      "token2_denom": {
+        "cw20": "juno1pshrvuw5ng2q4nwcsuceypjkp48d95gmcgjdxlus2ytm4k5kvz2s7t9ldx"
+      },
+      "lp_token_supply": "34521956426",
+      "lp_token_address": "juno1pe2umwzqea0hvstzug2mm2ntrcxm336374954p5f6e52s5gf2zusklhqqr"
     }
   },
   "juno1sg6chmktuhyj4lsrxrrdflem7gsnk4ejv6zkcc4d3vcqulzp55wsf4l4gl": {
