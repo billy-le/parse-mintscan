@@ -9,7 +9,7 @@ import bigDecimal from "js-big-decimal";
 const walletAddress = process.argv[2];
 if (!walletAddress) throw new Error("no wallet provided as argument");
 
-const network = "juno";
+const network = "cosmoshub";
 const csvFilename = `./csv/${network}_data.csv`;
 const timeoutFilename = "timeout_txs.txt";
 

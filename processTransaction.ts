@@ -4,7 +4,6 @@ import { exec } from "child_process";
 import { format as dateFormat, parseISO } from "date-fns";
 
 import bigDecimal from "js-big-decimal";
-import transformTransaction from "./transactions-transformers/koinly.ts";
 
 type TxType = Record<
   string,
@@ -13,7 +12,12 @@ type TxType = Record<
       messages: any[];
     };
     auth_info: {
-      fee: { amount: Array<{ denom: string; amount: string }> };
+      fee: {
+        amount: Array<{ denom: string; amount: string }>;
+        gas_limit: string;
+        payer: string;
+        granter: string;
+      };
     };
   }
 >;
@@ -30,12 +34,7 @@ function getDenominator(decimals: number) {
   return Math.pow(10, decimals);
 }
 
-function getModuleType(mod: Record<"@type", string> | TxType): {
-  body: {
-    messages: any[];
-  };
-  auth_info: { fee: { amount: Array<{ denom: string; amount: string }> } };
-} {
+function getModuleType(mod: Record<"@type", string> | TxType): TxType[string] {
   const type = (mod["@type"] as string).replaceAll(".", "-");
   return (mod as TxType)[type];
 }
@@ -94,7 +93,7 @@ function createTransaction({
   sentAmount = "",
   receivedAsset = "",
   receivedAmount = "",
-  feeAsset = "JUNO",
+  feeAsset = "ATOM",
   feeAmount = "",
   marketValueCurrency = "",
   marketValue = "",
@@ -132,6 +131,32 @@ async function getFees(tx: any) {
   );
 }
 
+function getValueOfKey(
+  arr: Array<{ key: string; value: string }>,
+  key: string
+) {
+  return arr.find((item) => item.key === key);
+}
+
+function getDenominationsValueList(value: string) {
+  let denoms: Array<[string, string]> = [];
+  const parts = value.split(",");
+
+  for (const part of parts) {
+    let denom: string | undefined = "";
+    if (part.includes("ibc/")) {
+      denom = getAssetInfo(part)?.[1];
+    } else {
+      denom = part.match(/[a-z]+/gi)?.[0];
+    }
+    const amount = part.match(/\d+/gi);
+
+    denoms.push([amount?.[0] ?? "0", denom ?? "Unknown"]);
+  }
+
+  return denoms;
+}
+
 async function processTransaction(
   address: string,
   {
@@ -140,13 +165,11 @@ async function processTransaction(
     timestamp,
     tx,
     logs,
-    memo,
   }: {
     txhash: string;
     id: string;
     timestamp: string;
     tx: Record<"@type", string> | TxType;
-    memo: string;
     logs: {
       events: Array<{
         type:
@@ -158,6 +181,9 @@ async function processTransaction(
           | "claim"
           | "withdraw_rewards"
           | "wasm"
+          | "proposal_vote"
+          | "swap_within_batch"
+          | "ibc_transfer"
           | "cosmos.authz.v1beta1.EventGrant"
           | "cosmos.authz.v1beta1.EventRevoke";
         attributes: Array<{ key: string; value: string }>;
@@ -165,11 +191,564 @@ async function processTransaction(
     }[];
   }
 ) {
-  const date = dateFormat(parseISO(timestamp), "yyyy-MM-dd H:mm:ss");
+  let transactions: Transaction[] = [];
 
-  let transactions = [];
+  const date = dateFormat(parseISO(timestamp), "yyyy-MM-dd H:mm:ss");
+  const actionSet = new Set<string>();
+
+  logs.forEach((log) => {
+    log.events.forEach(({ type, attributes }) => {
+      if (type === "message") {
+        const action = attributes.find(({ key }) => key === "action")?.value;
+        if (action) {
+          actionSet.add(action);
+        }
+      }
+    });
+  });
+
+  const actions = Array.from(actionSet);
+
+  if (!actions.length) {
+    transactions.push(
+      createTransaction({
+        date,
+        transactionHash,
+        transactionId,
+        type: "Expense",
+        feeAmount: await getFees(tx),
+        feeAsset: "ATOM",
+      })
+    );
+  } else {
+    for (const action of actions) {
+      switch (action) {
+        default: {
+          console.log(action);
+          break;
+        }
+        case "/ibc.applications.transfer.v1.MsgTransfer": {
+          for (const log of logs) {
+            const transfers = log.events.filter(
+              ({ type }) => type === "transfer"
+            );
+
+            for (const { attributes } of transfers) {
+              const recipient = getValueOfKey(attributes, "recipient");
+              const sender = getValueOfKey(attributes, "sender");
+              const amount = getValueOfKey(attributes, "amount");
+              const denoms = amount
+                ? getDenominationsValueList(amount.value)
+                : [["0", "Unknown"]];
+              const transaction = createTransaction({
+                date,
+                transactionHash,
+                transactionId,
+              });
+              if (recipient?.value === address) {
+                transaction.type = "Deposit";
+                transaction.description = `Received from ${sender?.value}`;
+                for (const [amount, denom] of denoms) {
+                  const { symbol, decimals } = await getIbcDenomination(denom);
+                  const tokenAmount = bigDecimal.divide(
+                    amount,
+                    getDenominator(decimals),
+                    decimals
+                  );
+                  transaction.receivedAmount = tokenAmount;
+                  transaction.receivedAsset = symbol;
+                  transactions.push(transaction);
+                }
+              } else if (sender?.value === address) {
+                const ibcRecipient = log.events
+                  .find(({ type }) => type === "ibc_transfer")
+                  ?.attributes?.find(({ key }) => key === "receiver");
+                transaction.type = "Transfer";
+                transaction.description = `Sent to ${ibcRecipient?.value}`;
+                for (const [amount, denom] of denoms) {
+                  const { symbol, decimals } = await getIbcDenomination(denom);
+                  const tokenAmount = bigDecimal.divide(
+                    amount,
+                    getDenominator(decimals),
+                    decimals
+                  );
+                  transaction.sentAmount = tokenAmount;
+                  transaction.sentAsset = symbol;
+                  transactions.push(transaction);
+                }
+
+                transactions.push(
+                  createTransaction({
+                    date,
+                    transactionHash,
+                    transactionId,
+                    type: "Expense",
+                    description: "Fee for IBC Transfer",
+                    feeAmount: await getFees(tx),
+                  })
+                );
+              }
+            }
+          }
+
+          break;
+        }
+        case "/cosmos.gov.v1beta1.MsgVote": {
+          for (const log of logs) {
+            const voteAttributes =
+              log.events.find(({ type }) => type === "proposal_vote")
+                ?.attributes ?? [];
+            const proposalId = getValueOfKey(
+              voteAttributes,
+              "proposal_id"
+            )?.value;
+
+            transactions.push(
+              createTransaction({
+                date,
+                transactionHash,
+                transactionId,
+                type: "Expense",
+                feeAmount: await getFees(tx),
+                description: `Vote on #${proposalId}`,
+              })
+            );
+          }
+          break;
+        }
+        case "/cosmos.staking.v1beta1.MsgDelegate": {
+          for (const log of logs) {
+            const delegates = log.events.filter(
+              ({ type }) => type === "delegate"
+            );
+            for (const { attributes } of delegates) {
+              const amount = attributes.find(({ key }) => key === "amount");
+              const denoms = amount
+                ? getDenominationsValueList(amount.value)
+                : [["0", "Unknown"]];
+              for (const [amount, denom] of denoms) {
+                const { symbol, decimals } = await getIbcDenomination(denom);
+                const tokenAmount = bigDecimal.divide(
+                  amount,
+                  getDenominator(decimals),
+                  decimals
+                );
+
+                transactions.push(
+                  createTransaction({
+                    date,
+                    transactionHash,
+                    transactionId,
+                    type: "Expense",
+                    description: `Delegated ${tokenAmount} ${symbol}`,
+                    feeAmount: await getFees(tx),
+                  })
+                );
+              }
+            }
+
+            const transfers = log.events.filter(
+              ({ type }) => type == "transfer"
+            );
+
+            for (const { attributes } of transfers) {
+              const recipient = getValueOfKey(attributes, "recipient");
+              if (recipient?.value === address) {
+                const amount = getValueOfKey(attributes, "amount");
+                const denoms = amount
+                  ? getDenominationsValueList(amount.value)
+                  : [["0", "Unknown"]];
+                for (const [amount, denom] of denoms) {
+                  const { symbol, decimals } = await getIbcDenomination(denom);
+                  const tokenAmount = bigDecimal.divide(
+                    amount,
+                    getDenominator(decimals),
+                    decimals
+                  );
+                  transactions.push(
+                    createTransaction({
+                      date,
+                      transactionHash,
+                      transactionId,
+                      type: "Income",
+                      description: "Claim Rewards from Delegating",
+                      receivedAmount: tokenAmount,
+                      receivedAsset: symbol,
+                    })
+                  );
+                }
+              }
+            }
+          }
+
+          break;
+        }
+        case "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward": {
+          const rewards: Record<string, string> = {};
+          for (const log of logs) {
+            const transfers = log.events.filter(
+              (event) => event.type === "transfer"
+            );
+            for (const { attributes } of transfers) {
+              const recipient = getValueOfKey(attributes, "recipient");
+              if (recipient?.value === address) {
+                const amount = getValueOfKey(attributes, "amount");
+
+                const denoms = amount
+                  ? getDenominationsValueList(amount?.value)
+                  : [["0", "Unknown"]];
+
+                for (const [amount, denom] of denoms) {
+                  const tokenInfo = await getIbcDenomination(denom);
+                  const tokenAmount = bigDecimal.divide(
+                    amount,
+                    getDenominator(tokenInfo.decimals),
+                    tokenInfo.decimals
+                  );
+
+                  if (!rewards[tokenInfo.symbol]) {
+                    rewards[tokenInfo.symbol] = "";
+                  }
+
+                  rewards[tokenInfo.symbol] = bigDecimal.add(
+                    rewards[tokenInfo.symbol],
+                    tokenAmount
+                  );
+                }
+              }
+            }
+          }
+
+          for (const token in rewards) {
+            transactions.push(
+              createTransaction({
+                date,
+                transactionHash,
+                transactionId,
+                type: "Income",
+                description: "Claimed Rewards",
+                receivedAmount: rewards[token],
+                receivedAsset: token,
+              })
+            );
+          }
+
+          transactions.push(
+            createTransaction({
+              date,
+              transactionHash,
+              transactionId,
+              type: "Expense",
+              feeAmount: await getFees(tx),
+              description: "Fees from Claiming Rewards",
+            })
+          );
+
+          break;
+        }
+
+        /* LEGACY ACTION TYPES */
+        case "withdraw_delegator_reward": {
+          const rewards: Record<string, string> = {};
+          for (const log of logs) {
+            const transferInfo =
+              log.events.find(({ type }) => type === "transfer")?.attributes ??
+              [];
+            const recipient = getValueOfKey(transferInfo, "recipient");
+            const amount = getValueOfKey(transferInfo, "amount");
+            const denoms = amount
+              ? getDenominationsValueList(amount?.value)
+              : [["0", "Unknown"]];
+
+            if (recipient?.value === address) {
+              for (const [amount, denom] of denoms) {
+                const tokenInfo = await getIbcDenomination(denom);
+                const tokenAmount = bigDecimal.divide(
+                  amount,
+                  getDenominator(tokenInfo.decimals),
+                  tokenInfo.decimals
+                );
+
+                if (!rewards[tokenInfo.symbol]) {
+                  rewards[tokenInfo.symbol] = "";
+                }
+
+                rewards[tokenInfo.symbol] = bigDecimal.add(
+                  rewards[tokenInfo.symbol],
+                  tokenAmount
+                );
+              }
+            }
+          }
+
+          for (const token in rewards) {
+            transactions.push(
+              createTransaction({
+                date,
+                transactionHash,
+                transactionId,
+                type: "Income",
+                description: "Claimed Rewards",
+                receivedAmount: rewards[token],
+                receivedAsset: token,
+              })
+            );
+          }
+
+          transactions.push(
+            createTransaction({
+              date,
+              transactionHash,
+              transactionId,
+              type: "Expense",
+              feeAmount: await getFees(tx),
+              description: "Fees from Claiming Rewards",
+            })
+          );
+
+          break;
+        }
+        case "send": {
+          for (const log of logs) {
+            const transferInfo =
+              log.events.find(({ type }) => type === "transfer")?.attributes ??
+              [];
+            const recipient = getValueOfKey(transferInfo, "recipient");
+            const sender = getValueOfKey(transferInfo, "sender");
+            const amount = getValueOfKey(transferInfo, "amount");
+            const denoms = amount
+              ? getDenominationsValueList(amount?.value)
+              : [["0", "Unknown"]];
+
+            if (recipient?.value === address) {
+              for (const [amount, denom] of denoms) {
+                const tokenInfo = await getIbcDenomination(denom);
+                const tokenAmount = bigDecimal.divide(
+                  amount,
+                  getDenominator(tokenInfo.decimals),
+                  tokenInfo.decimals
+                );
+
+                transactions.push(
+                  createTransaction({
+                    date,
+                    transactionHash,
+                    transactionId,
+                    type: "Deposit",
+                    receivedAmount: tokenAmount,
+                    receivedAsset: tokenInfo.symbol,
+                    description: `Received from ${sender?.value}`,
+                  })
+                );
+              }
+            } else if (sender?.value === address) {
+              for (const [amount, denom] of denoms) {
+                const tokenInfo = await getIbcDenomination(denom);
+                const tokenAmount = bigDecimal.divide(
+                  amount,
+                  getDenominator(tokenInfo.decimals),
+                  tokenInfo.decimals
+                );
+
+                transactions.push(
+                  createTransaction({
+                    date,
+                    transactionHash,
+                    transactionId,
+                    type: "Transfer",
+                    receivedAmount: tokenAmount,
+                    receivedAsset: tokenInfo.symbol,
+                    description: `Sent to ${recipient?.value}`,
+                  })
+                );
+              }
+            }
+          }
+
+          transactions.push(
+            createTransaction({
+              date,
+              transactionHash,
+              transactionId,
+              type: "Expense",
+              feeAmount: await getFees(tx),
+            })
+          );
+          break;
+        }
+        case "delegate": {
+          for (const log of logs) {
+            const delegateAmount = log.events
+              .find(({ type }) => type === "delegate")
+              ?.attributes?.find(({ key }) => key === "amount");
+            const [[amount, denom]] = delegateAmount
+              ? getDenominationsValueList(delegateAmount.value)
+              : ["0", "Unknown"];
+            const tokenInfo =
+              denom !== "Unknown"
+                ? await getIbcDenomination(denom)
+                : { symbol: "Unknown", decimals: "0" };
+
+            const tokenAmount = bigDecimal.divide(
+              amount,
+              getDenominator(tokenInfo.decimals),
+              tokenInfo.decimals
+            );
+
+            transactions.push(
+              createTransaction({
+                date,
+                transactionHash,
+                transactionId,
+                type: "Expense",
+                description: `Delegated ${tokenAmount} ${tokenInfo.symbol}`,
+                feeAmount: await getFees(tx),
+              })
+            );
+
+            const transferInfo =
+              log.events.find(({ type }) => type === "transfer")?.attributes ??
+              [];
+            if (transferInfo.length) {
+              const receiver = getValueOfKey(transferInfo, "recipient");
+              const amountInfo = getValueOfKey(transferInfo, "amount");
+              const denoms = amountInfo
+                ? getDenominationsValueList(amountInfo.value)
+                : [["0", "Unknown"]];
+
+              for (const [amount, denom] of denoms) {
+                const tokenInfo = await getIbcDenomination(denom);
+                const tokenAmount = bigDecimal.divide(
+                  amount,
+                  getDenominator(tokenInfo.decimals),
+                  tokenInfo.decimals
+                );
+
+                if (receiver?.value === address) {
+                  transactions.push(
+                    createTransaction({
+                      date,
+                      transactionHash,
+                      transactionId,
+                      type: "Income",
+                      description: `Claimed ${tokenAmount} ${tokenInfo.symbol}`,
+                      receivedAmount: tokenAmount,
+                      receivedAsset: tokenInfo.symbol,
+                    })
+                  );
+                }
+              }
+            }
+          }
+          break;
+        }
+        case "vote": {
+          for (const log of logs) {
+            const voteAttributes =
+              log.events.find(({ type }) => type === "proposal_vote")
+                ?.attributes ?? [];
+            const proposalId = getValueOfKey(
+              voteAttributes,
+              "proposal_id"
+            )?.value;
+
+            transactions.push(
+              createTransaction({
+                date,
+                transactionHash,
+                transactionId,
+                type: "Expense",
+                feeAmount: await getFees(tx),
+                description: `Vote on #${proposalId}`,
+              })
+            );
+          }
+
+          break;
+        }
+
+        case "swap_within_batch": {
+          for (const log of logs) {
+            const swapWithinBranch = log.events.filter(
+              ({ type }) => type === "swap_within_batch"
+            );
+
+            for (const {
+              attributes: [
+                ,
+                ,
+                ,
+                ,
+                { value: offerCoinDenom },
+                { value: offerCoinAmount },
+                { value: offerCoinFee },
+                { value: demandCoinDenom },
+                { value: orderPrice },
+              ],
+            } of swapWithinBranch) {
+              const offerCoinInfo = await getIbcDenomination(offerCoinDenom);
+              const offerCoinValue = bigDecimal.divide(
+                offerCoinAmount,
+                getDenominator(offerCoinInfo.decimals),
+                offerCoinInfo.decimals
+              );
+              const offerFee = bigDecimal.divide(
+                offerCoinFee,
+                getDenominator(offerCoinInfo.decimals),
+                offerCoinInfo.decimals
+              );
+              const demandCoinInfo = await getIbcDenomination(demandCoinDenom);
+              const amount = bigDecimal.multiply(offerCoinValue, orderPrice);
+              transactions.push(
+                createTransaction({
+                  date,
+                  transactionHash,
+                  transactionId,
+                  type: "Swap",
+                  description: `Swapped ${offerCoinValue} ${offerCoinInfo.symbol} for ${amount} ${demandCoinInfo.symbol}`,
+                  sentAmount: offerCoinValue,
+                  sentAsset: offerCoinInfo.symbol,
+                  receivedAmount: amount,
+                  receivedAsset: demandCoinInfo.symbol,
+                })
+              );
+
+              transactions.push(
+                createTransaction({
+                  date,
+                  transactionHash,
+                  transactionId,
+                  type: "Expense",
+                  description: "Swap Fee",
+                  feeAsset: offerCoinInfo.symbol,
+                  feeAmount: offerFee,
+                })
+              );
+            }
+          }
+
+          transactions.push(
+            createTransaction({
+              date,
+              transactionHash,
+              transactionId,
+              type: "Expense",
+              feeAmount: await getFees(tx),
+            })
+          );
+          break;
+        }
+        case "deposit_within_batch": {
+          // console.log(log);
+          break;
+        }
+      }
+    }
+  }
 
   const { body } = getModuleType(tx);
+
+  return transactions.map((tx) => Object.values(tx).join(",") + "\n").join("");
 
   const msgTypeGroup: Record<string, Array<any>> = {};
 
