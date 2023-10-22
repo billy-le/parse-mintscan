@@ -33,7 +33,8 @@
       },
       "ibc_port_id": "",
       "extension": null
-    }
+    },
+    "bondToken": "juno1mkw83sv6c7sjdvsaplrzc8yaes9l42p4mhy0ssuxjnyzl87c9eps7ce3m9"
   },
   "juno1v99ehkuetkpf0yxdry8ce92yeqaeaa7lyxr2aagkesrw67wcsn8qxpxay0": {
     "address": "juno1v99ehkuetkpf0yxdry8ce92yeqaeaa7lyxr2aagkesrw67wcsn8qxpxay0",
@@ -78,7 +79,8 @@
       },
       "ibc_port_id": "",
       "extension": null
-    }
+    },
+    "token_address": "juno1g2g7ucurum66d42g8k5twk34yegdq8c82858gz0tq2fc75zy7khssgnhjl"
   },
   "juno1g2g7ucurum66d42g8k5twk34yegdq8c82858gz0tq2fc75zy7khssgnhjl": {
     "address": "juno1g2g7ucurum66d42g8k5twk34yegdq8c82858gz0tq2fc75zy7khssgnhjl",
@@ -405,7 +407,8 @@
       },
       "ibc_port_id": "",
       "extension": null
-    }
+    },
+    "token_address": "juno1g2g7ucurum66d42g8k5twk34yegdq8c82858gz0tq2fc75zy7khssgnhjl"
   },
   "juno1unjfruscnz39mh42dtekak489s7mnzyh7ry20t80errfkf5j3spqetewaq": {
     "address": "juno1unjfruscnz39mh42dtekak489s7mnzyh7ry20t80errfkf5j3spqetewaq",

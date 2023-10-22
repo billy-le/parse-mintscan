@@ -1,6 +1,13 @@
 interface Transaction {
   date: string;
-  type?: string;
+  type?:
+    | "Expense"
+    | "Staking"
+    | "Transfer"
+    | "Income"
+    | "Deposit"
+    | "Swap"
+    | "Other";
   sentAsset?: string;
   sentAmount?: string;
   receivedAsset?: string;

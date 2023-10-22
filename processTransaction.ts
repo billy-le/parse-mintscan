@@ -89,7 +89,7 @@ async function getIbcDenomination(pathHash: string) {
 
 function createTransaction({
   date = "",
-  type = "",
+  type = "Other",
   sentAsset = "",
   sentAmount = "",
   receivedAsset = "",
@@ -966,17 +966,6 @@ async function processTransaction(
               )
             );
           }
-          // transactions.push(
-          //   ...transformTransaction(
-          //     createTransaction({
-          //       date,
-          //       transactionHash,
-          //       transactionId,
-          //       feeAmount: await getFees(tx),
-          //       type: "Expense",
-          //     })
-          //   )
-          // );
           break;
         }
         case "/cosmos.authz.v1beta1.MsgGrant": {
@@ -1063,7 +1052,7 @@ async function processTransaction(
                   );
                   const contractAddress = group.find(
                     ({ key }) => key === "_contract_address"
-                  );
+                  )!;
 
                   const file = await fs.promises.readFile(
                     "./smart-contracts/juno.json"
@@ -1098,6 +1087,17 @@ async function processTransaction(
                   if (action?.value) {
                     switch (action.value) {
                       case "delegate": {
+                        const tokenInfo =
+                          smartContracts[contractAddress.value]?.token_info;
+                        const amount = group.find(
+                          ({ key }) => key === "amount"
+                        );
+                        const value = bigDecimal.divide(
+                          amount.value,
+                          getDenominator(tokenInfo.decimals),
+                          tokenInfo.decimals
+                        );
+
                         transactions.push(
                           ...transformTransaction(
                             createTransaction({
@@ -1105,7 +1105,8 @@ async function processTransaction(
                               transactionHash,
                               transactionId,
                               feeAmount: await getFees(tx),
-                              description: `Delegate`,
+                              description: `Delegate ${value} ${tokenInfo.symbol}`,
+                              type: "Expense",
                             })
                           )
                         );
@@ -1113,9 +1114,96 @@ async function processTransaction(
                         break;
                       }
                       case "bond": {
+                        const amount = group.find(
+                          ({ key }) => key === "amount"
+                        )?.value;
+
+                        const infoBase64 = Buffer.from(
+                          '{"token_contract": {} }',
+                          "utf-8"
+                        );
+
+                        if (!smartContracts[contractAddress.value].bondToken) {
+                          const data = await fetch(
+                            `https://lcd-juno.validavia.me/cosmwasm/wasm/v1/contract/${
+                              contractAddress.value
+                            }/smart/${infoBase64.toString(
+                              "base64"
+                            )}?encoding=UTF-8`
+                          ).then((res) => {
+                            if (res.ok) return res.json();
+                            return undefined;
+                          });
+                          if (data) {
+                            smartContracts[contractAddress.value].bondToken =
+                              data.data;
+
+                            await fs.promises.writeFile(
+                              "./smart-contracts/juno.json",
+                              JSON.stringify(smartContracts, null, 2)
+                            );
+                          }
+                        }
+
+                        if (!smartContracts[contractAddress.value].bondToken) {
+                          return;
+                        }
+
+                        const token =
+                          smartContracts[
+                            smartContracts[contractAddress.value].bondToken
+                          ].token_info;
+                        const value = bigDecimal.divide(
+                          amount,
+                          getDenominator(token.decimals),
+                          token.decimals
+                        );
+                        transactions.push(
+                          ...transformTransaction(
+                            createTransaction({
+                              date,
+                              transactionHash,
+                              transactionId,
+                              description: `Stake ${value} ${token.symbol}`,
+                              type: "Expense",
+                              feeAmount: await getFees(tx),
+                            })
+                          )
+                        );
                         break;
                       }
                       case "withdraw_rewards": {
+                        const receiver = group.find(
+                          ({ key }) => key === "receiver"
+                        );
+                        const reward = group.find(
+                          ({ key }) => key === "reward"
+                        );
+
+                        if (receiver?.value === address) {
+                          const bondToken =
+                            smartContracts[contractAddress.value]?.bondToken;
+                          const token = smartContracts[bondToken]?.token_info;
+                          const amount = bigDecimal.divide(
+                            reward?.value,
+                            getDenominator(token.decimals),
+                            token.decimals
+                          );
+                          transactions.push(
+                            ...transformTransaction(
+                              createTransaction({
+                                date,
+                                transactionHash,
+                                transactionId,
+                                type: "Income",
+                                description: `Claim ${amount} ${token.symbol}`,
+                                receivedAmount: amount,
+                                receivedAsset: token.symbol,
+                              })
+                            )
+                          );
+                        }
+
                         break;
                       }
                       case "transfer": {
@@ -1123,8 +1211,16 @@ async function processTransaction(
                           if (
                             !smartContracts[contractAddress.value].token_info
                           ) {
+                            const tokenInfoBase64 = Buffer.from(
+                              '{"token_info": {}}',
+                              "utf-8"
+                            );
                             const data = await fetch(
-                              `https://lcd-juno.validavia.me/cosmwasm/wasm/v1/contract/${contractAddress.value}/smart/eyJ0b2tlbl9pbmZvIjp7fX0=?encoding=UTF-8`
+                              `https://lcd-juno.validavia.me/cosmwasm/wasm/v1/contract/${
+                                contractAddress.value
+                              }/smart/${tokenInfoBase64.toString(
+                                "base64"
+                              )}?encoding=UTF-8`
                             ).then((res) => {
                               if (res.ok) return res.json();
                               return undefined;
@@ -1156,6 +1252,7 @@ async function processTransaction(
                             transactionHash,
                             transactionId,
                           });
+
                           if (receiver?.value === address) {
                             transaction.receivedAmount = bigDecimal.divide(
                               amount.value,
@@ -1164,6 +1261,7 @@ async function processTransaction(
                             );
                             transaction.receivedAsset = tokenInfo.symbol;
                             transaction.description = `Received from ${sender.value}`;
+                            transaction.type = "Deposit";
                           } else if (sender?.value === address) {
                             transaction.sentAmount = bigDecimal.divide(
                               amount.value,
@@ -1172,6 +1270,7 @@ async function processTransaction(
                             );
                             transaction.sentAsset = tokenInfo.symbol;
                             transaction.description = `Sent to ${receiver.value}`;
+                            transaction.type = "Transfer";
                           }
                           transactions.push(
                             ...transformTransaction(transaction)
@@ -1218,15 +1317,138 @@ async function processTransaction(
                         break;
                       }
                       case "vote": {
+                        const contractInfo =
+                          smartContracts[contractAddress.value];
+                        const proposalId = group.find(
+                          ({ key }) => key === "proposal_id"
+                        )?.value;
+
+                        transactions.push(
+                          ...transformTransaction(
+                            createTransaction({
+                              date,
+                              transactionHash,
+                              transactionId,
+                              type: "Expense",
+                              feeAmount: await getFees(tx),
+                              description: `${contractInfo.contract_info.label} - Vote on #${proposalId}`,
+                            })
+                          )
+                        );
+
                         break;
                       }
                       case "send": {
+                        const tokenInfo =
+                          smartContracts[contractAddress.value]?.token_info;
+                        const sender = group.find(({ key }) => key === "to");
+                        const receiver = group.find(
+                          ({ key }) => key === "from"
+                        );
+                        const amount = group.find(
+                          ({ key }) => key === "amount"
+                        );
+                        const transaction = createTransaction({
+                          date,
+                          transactionHash,
+                          transactionId,
+                        });
+
+                        if (sender.value === address) {
+                          transaction.sentAmount = bigDecimal.divide(
+                            amount?.value,
+                            getDenominator(tokenInfo.decimals),
+                            tokenInfo.decimals
+                          );
+                          transaction.sentAsset = tokenInfo.symbol;
+                          transaction.description = `>>> Sent to ${receiver.value}`;
+                        } else if (receiver.value === address) {
+                          transaction.receivedAmount = bigDecimal.divide(
+                            amount?.value,
+                            getDenominator(tokenInfo.decimals),
+                            tokenInfo.decimals
+                          );
+                          transaction.receivedAsset = tokenInfo.symbol;
+                          transaction.description = `>>> Received from ${sender.value}`;
+                        }
+
+                        transactions.push(...transformTransaction(transaction));
+                        transactions.push(
+                          ...transformTransaction(
+                            createTransaction({
+                              date,
+                              transactionHash,
+                              transactionId,
+                              type: "Expense",
+                              feeAmount: await getFees(tx),
+                            })
+                          )
+                        );
                         break;
                       }
                       case "stake": {
                         break;
                       }
                       case "unstake": {
+                        try {
+                          if (
+                            !smartContracts[contractAddress.value]
+                              ?.token_address
+                          ) {
+                            const base64 = Buffer.from(
+                              '{"get_config": {}}',
+                              "utf-8"
+                            );
+
+                            const data = await fetch(
+                              `https://lcd-juno.validavia.me/cosmwasm/wasm/v1/contract/${
+                                contractAddress.value
+                              }/smart/${base64.toString(
+                                "base64"
+                              )}?encoding=UTF-8`
+                            ).then((res) => {
+                              if (res.ok) return res.json();
+                              return undefined;
+                            });
+
+                            if (data) {
+                              smartContracts[
+                                contractAddress.value
+                              ].token_address = data.data.token_address;
+                              await fs.promises.writeFile(
+                                "./smart-contracts/juno.json",
+                                JSON.stringify(smartContracts, null, 2)
+                              );
+                            }
+                          }
+
+                          const amount = group.find(
+                            ({ key }) => key === "amount"
+                          );
+                          const token =
+                            smartContracts[
+                              smartContracts[contractAddress.value]
+                                .token_address
+                            ]?.token_info;
+                          const value = bigDecimal.divide(
+                            amount?.value,
+                            getDenominator(token.decimals),
+                            token.decimals
+                          );
+                          transactions.push(
+                            ...transformTransaction(
+                              createTransaction({
+                                date,
+                                transactionHash,
+                                transactionId,
+                                type: "Expense",
+                                feeAmount: await getFees(tx),
+                                description: `Unstaked ${value} ${token.symbol}`,
+                              })
+                            )
+                          );
+                        } catch (err) {}
+
                         break;
                       }
                       case "increase_allowance": {
@@ -1270,11 +1492,16 @@ async function processTransaction(
                       console.log(err);
                     }
 
-                    const token1 =
-                      smartContracts[contractAddress.value]?.swap.token1_denom;
-                    const token2 =
-                      smartContracts[contractAddress.value]?.swap.token2_denom;
-
+                    const tokenIn = bigDecimal.divide(
+                      swap.value,
+                      getDenominator(6),
+                      6
+                    );
+                    const tokenOut = bigDecimal.divide(
+                      bought.value,
+                      getDenominator(6),
+                      6
+                    );
                     transactions.push(
                       ...transformTransaction(
                         createTransaction({
@@ -1282,19 +1509,12 @@ async function processTransaction(
                           transactionHash,
                           transactionId,
                           type: "Swap",
-                          sentAmount: bigDecimal.divide(
-                            swap.value,
-                            getDenominator(6),
-                            6
-                          ),
+                          sentAmount: tokenIn,
                           sentAsset: "HULC",
-                          receivedAmount: bigDecimal.divide(
-                            bought.value,
-                            getDenominator(6),
-                            6
-                          ),
+                          receivedAmount: tokenOut,
                           receivedAsset: "JUNO",
                           feeAmount: await getFees(tx),
+                          description: `Swapped ${tokenIn} HULC for ${tokenOut} Juno`,
                         })
                       )
                     );
@@ -1306,7 +1526,7 @@ async function processTransaction(
                       ({ key }) => key === "token1_amount"
                     ); // juno
                   } else {
-                    console.log(group);
+                    // console.log(group);
                   }
                 }
               } else {
