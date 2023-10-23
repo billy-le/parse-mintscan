@@ -5,22 +5,19 @@ import { format as dateFormat, parseISO } from "date-fns";
 
 import bigDecimal from "js-big-decimal";
 
-type TxType = Record<
-  string,
-  {
-    body: {
-      messages: any[];
-    };
-    auth_info: {
-      fee: {
-        amount: Array<{ denom: string; amount: string }>;
-        gas_limit: string;
-        payer: string;
-        granter: string;
-      };
-    };
-  }
->;
+// processors
+import { msgTimout } from "./processors/msgTimeout";
+import { msgRecvPacket } from "./processors/msgRecvPacket";
+import { msgBeginRedelegate } from "./processors/msgBeginRedelegate";
+import { msgWithdrawWithinBatch } from "./processors/msgWithdrawWithinBatch";
+import { msgSwapWithinBatch } from "./processors/msgSwapWithinBatch";
+import { msgSend } from "./processors/msgSend";
+import { ibcMsgTransfer } from "./processors/ibcMsgTransfer";
+import { msgVote } from "./processors/msgVote";
+import { msgDelegate } from "./processors/msgDelegate";
+import { msgWithdrawDelegatorReward } from "./processors/msgWithdrawDelegatorReward";
+import { legacyWithdrawDelegatorReward } from "./processors/legacyWithdrawDelegatorReward";
+import { legacySend } from "./processors/legacySend";
 
 const execPromise = util.promisify(exec);
 
@@ -228,166 +225,66 @@ async function processTransaction(
     for (const action of actions) {
       switch (action) {
         default: {
-          // console.log(action);
           break;
         }
         case "/ibc.core.client.v1.MsgUpdateClient":
         case "/ibc.core.channel.v1.MsgAcknowledgement": {
           break;
         }
-        case "/ibc.core.channel.v1.MsgTimeout": {
-          const filename = "timeout_txs.txt";
+        case "/cosmwasm.wasm.v1.MsgExecuteContract": {
           for (const { events } of logs) {
-            const timeoutPacket = events.find(
-              ({ type }) => type === "timeout_packet"
-            );
-            if (timeoutPacket) {
-              const [{ value: timeoutHeight }] = timeoutPacket.attributes;
-              const timeout = `timeout_height: ${timeoutHeight}`;
-              try {
-                // when an ibc transaction timeouts, we need to remove the entry from the data.csv
-                // so we store all timeout txs in a file
-                const txs = await fs.promises.readFile(filename, "utf-8");
-                if (!txs.includes(timeout)) {
-                  await fs.promises.writeFile(filename, `${timeout}\n`, {
-                    flag: "a",
-                  });
-                }
-              } catch (err) {
-                await fs.promises.writeFile(filename, `${timeout}\n`);
+            const action = events
+              .find((evt) => evt.type == "wasm")
+              ?.attributes?.find(({ key }) => key === "action")?.value;
+
+            switch (action) {
+              default: {
+                break;
               }
             }
-          }
+            // const keys = new Set();
+            // events.forEach(({ type }) => keys.add(type));
 
+            // for (const { type, attributes } of events) {
+            //   if (type === "wasm") {
+            //     const action = attributes.find(
+            //       ({ key }) => key === "action"
+            //     )?.value;
+            //     console.log(action);
+            //   }
+            // }
+          }
+          break;
+        }
+        case "/ibc.core.channel.v1.MsgTimeout": {
+          await msgTimout(baseSymbol, logs);
           break;
         }
         case "/ibc.core.channel.v1.MsgRecvPacket": {
-          for (const { events } of logs) {
-            for (const { type, attributes } of events) {
-              if (type === "transfer") {
-                const keys = new Set<string>();
-                attributes.forEach(({ key }) => keys.add(key));
-                for (let i = 0; i < attributes.length; i += keys.size) {
-                  const [
-                    { value: recipient },
-                    { value: sender },
-                    { value: amount },
-                  ] = attributes.slice(i, (i += keys.size));
-
-                  if (recipient === address) {
-                    const denoms = getDenominationsValueList(amount);
-                    for (const [amount, denom] of denoms) {
-                      const { symbol, decimals } = await getIbcDenomination(
-                        denom
-                      );
-                      const tokenAmount = bigDecimal.divide(
-                        amount,
-                        getDenominator(decimals),
-                        decimals
-                      );
-                      transactions.push(
-                        createTransaction({
-                          date,
-                          transactionHash,
-                          transactionId,
-                          receivedAmount: tokenAmount,
-                          receivedAsset: symbol,
-                          description: `Received from ${sender}`,
-                          type: "Deposit",
-                        })
-                      );
-                    }
-                  }
-                }
-              }
-            }
-          }
+          const txs = await msgRecvPacket(address, logs);
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            )
+          );
           break;
         }
         case "/cosmos.staking.v1beta1.MsgBeginRedelegate": {
-          for (const log of logs) {
-            for (const { type, attributes } of log.events) {
-              if (type === "redelegate") {
-                const [{ value: source }, { value: dest }, { value: amount }] =
-                  attributes;
-                const denoms = getDenominationsValueList(amount);
-                for (const [amount, denom] of denoms) {
-                  const { symbol, decimals } = await getIbcDenomination(denom);
-                  const tokenAmount = bigDecimal.divide(
-                    amount,
-                    getDenominator(decimals),
-                    decimals
-                  );
-                  transactions.push(
-                    createTransaction({
-                      date,
-                      transactionHash,
-                      transactionId,
-                      description: `Redelegated ${tokenAmount} ${symbol} from ${source} to ${dest}`,
-                      feeAmount: await getFees(tx),
-                      feeAsset: baseSymbol,
-                      type: "Expense",
-                    })
-                  );
-                }
-              }
-              if (type === "transfer") {
-                const keys = new Set<string>();
-                attributes.forEach(({ key }) => keys.add(key));
-                for (let i = 0; i < attributes.length; i += keys.size) {
-                  const [{ value: recipient }, , { value: amount }] =
-                    attributes.slice(i, (i += keys.size));
-
-                  if (recipient === address) {
-                    const denoms = getDenominationsValueList(amount);
-                    for (const [amount, denom] of denoms) {
-                      const { symbol, decimals } = await getIbcDenomination(
-                        denom
-                      );
-                      transactions.push(
-                        createTransaction({
-                          date,
-                          transactionHash,
-                          transactionId,
-                          description: `Claimed Rewards from Redelegating`,
-                          receivedAmount: bigDecimal.divide(
-                            amount,
-                            getDenominator(decimals),
-                            decimals
-                          ),
-                          receivedAsset: symbol,
-                        })
-                      );
-                    }
-                  }
-                }
-              }
-            }
-          }
+          const txs = await msgBeginRedelegate(address, baseSymbol, tx, logs);
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            )
+          );
           break;
         }
         case "/tendermint.liquidity.v1beta1.MsgWithdrawWithinBatch": {
-          for (const log of logs) {
-            for (const { type, attributes } of log.events) {
-              if (type === "withdraw_within_batch") {
-                const [, , , { value: denom }, { value: amount }] = attributes;
-                transactions.push(
-                  createTransaction({
-                    date,
-                    transactionHash,
-                    transactionId,
-                    description: "Remove from Liquidity Pool",
-                    sentAmount: bigDecimal.divide(
-                      amount,
-                      getDenominator(baseDecimals),
-                      baseDecimals
-                    ),
-                    sentAsset: denom,
-                  })
-                );
-              }
-            }
-          }
+          const txs = msgWithdrawWithinBatch(baseDecimals, logs);
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            )
+          );
           transactions.push(
             createTransaction({
               date,
@@ -402,58 +299,12 @@ async function processTransaction(
           break;
         }
         case "/tendermint.liquidity.v1beta1.MsgSwapWithinBatch": {
-          for (const log of logs) {
-            const swaps = log.events.filter(
-              ({ type }) => type === "swap_within_batch"
-            );
-            for (const {
-              attributes: [
-                ,
-                ,
-                ,
-                ,
-                { value: offerDenom },
-                { value: offerAmount },
-                { value: offerFee },
-                { value: demandDenom },
-                { value: orderPrice },
-              ],
-            } of swaps) {
-              const { symbol: offerSymbol, decimals: offerDecimals } =
-                await getIbcDenomination(offerDenom);
-              const offer = bigDecimal.divide(
-                offerAmount,
-                getDenominator(offerDecimals),
-                offerDecimals
-              );
-              const { symbol: demandSymbol, decimals: demandDecimals } =
-                await getIbcDenomination(demandDenom);
-              const demand = bigDecimal.divide(
-                bigDecimal.multiply(offer, orderPrice),
-                1,
-                demandDecimals
-              );
-              transactions.push(
-                createTransaction({
-                  date,
-                  transactionHash,
-                  transactionId,
-                  type: "Swap",
-                  sentAmount: offer,
-                  sentAsset: offerSymbol,
-                  receivedAmount: demand,
-                  receivedAsset: demandSymbol,
-                  description: `Swap ${offer} ${offerSymbol} for ${demand} ${demandSymbol}`,
-                  feeAmount: bigDecimal.divide(
-                    offerFee,
-                    getDenominator(offerDecimals),
-                    offerDecimals
-                  ),
-                  feeAsset: offerSymbol,
-                })
-              );
-            }
-          }
+          const txs = await msgSwapWithinBatch(logs);
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            )
+          );
 
           transactions.push(
             createTransaction({
@@ -470,301 +321,48 @@ async function processTransaction(
           break;
         }
         case "/cosmos.bank.v1beta1.MsgSend": {
-          for (const log of logs) {
-            const transfers = log.events.filter(
-              ({ type }) => type === "transfer"
-            );
-            if (transfers.length) {
-              for (const { attributes } of transfers) {
-                const recipient = getValueOfKey(attributes, "recipient");
-                const sender = getValueOfKey(attributes, "sender");
-                const amount = getValueOfKey(attributes, "amount");
-                const denoms = amount
-                  ? getDenominationsValueList(amount.value)
-                  : [["0", "Unknown"]];
-
-                if (recipient?.value === address) {
-                  for (const [amount, denom] of denoms) {
-                    const { symbol, decimals } = await getIbcDenomination(
-                      denom
-                    );
-                    const tokenAmount = bigDecimal.divide(
-                      amount,
-                      getDenominator(decimals),
-                      decimals
-                    );
-                    transactions.push(
-                      createTransaction({
-                        date,
-                        transactionHash,
-                        transactionId,
-                        type: "Deposit",
-                        description: `Received from ${sender?.value}`,
-                        receivedAmount: tokenAmount,
-                        receivedAsset: symbol,
-                      })
-                    );
-                  }
-                } else if (sender?.value === address) {
-                  for (const [amount, denom] of denoms) {
-                    const { symbol, decimals } = await getIbcDenomination(
-                      denom
-                    );
-                    const tokenAmount = bigDecimal.divide(
-                      amount,
-                      getDenominator(decimals),
-                      decimals
-                    );
-                    transactions.push(
-                      createTransaction({
-                        date,
-                        transactionHash,
-                        transactionId,
-                        type: "Transfer",
-                        description: `Sent to ${recipient?.value}`,
-                        sentAmount: tokenAmount,
-                        sentAsset: symbol,
-                      })
-                    );
-                  }
-
-                  transactions.push(
-                    createTransaction({
-                      date,
-                      transactionHash,
-                      transactionId,
-                      type: "Expense",
-                      feeAmount: await getFees(tx),
-                      feeAsset: baseSymbol,
-                      description: "Fee for Transfer",
-                    })
-                  );
-                }
-              }
-            }
-          }
+          const txs = await msgSend(address, baseSymbol, tx, logs);
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            )
+          );
           break;
         }
         case "/ibc.applications.transfer.v1.MsgTransfer": {
-          for (const { events } of logs) {
-            const transfers = events.filter(({ type }) => type === "transfer");
-            const [, , { value: timeoutHeight }] =
-              events.find(({ type }) => type === "send_packet")?.attributes ??
-              [];
-
-            for (const { attributes } of transfers) {
-              const recipient = getValueOfKey(attributes, "recipient");
-              const sender = getValueOfKey(attributes, "sender");
-              const amount = getValueOfKey(attributes, "amount");
-              const denoms = amount
-                ? getDenominationsValueList(amount.value)
-                : [["0", "Unknown"]];
-
-              if (recipient?.value === address) {
-                for (const [amount, denom] of denoms) {
-                  const { symbol, decimals } = await getIbcDenomination(denom);
-                  const tokenAmount = bigDecimal.divide(
-                    amount,
-                    getDenominator(decimals),
-                    decimals
-                  );
-                  transactions.push(
-                    createTransaction({
-                      date,
-                      transactionHash,
-                      transactionId,
-                      type: "Deposit",
-                      description: `Received from ${sender?.value}`,
-                      receivedAmount: tokenAmount,
-                      receivedAsset: symbol,
-                      meta: `timeout_height: ${timeoutHeight}`,
-                    })
-                  );
-                }
-              } else if (sender?.value === address) {
-                const ibcRecipient = events
-                  .find(({ type }) => type === "ibc_transfer")
-                  ?.attributes?.find(({ key }) => key === "receiver");
-                for (const [amount, denom] of denoms) {
-                  const { symbol, decimals } = await getIbcDenomination(denom);
-                  const tokenAmount = bigDecimal.divide(
-                    amount,
-                    getDenominator(decimals),
-                    decimals
-                  );
-                  transactions.push(
-                    createTransaction({
-                      date,
-                      transactionHash,
-                      transactionId,
-                      type: "Transfer",
-                      description: `Sent to ${ibcRecipient?.value}`,
-                      sentAmount: tokenAmount,
-                      sentAsset: symbol,
-                      meta: `timeout_height: ${timeoutHeight}`,
-                    })
-                  );
-                }
-
-                transactions.push(
-                  createTransaction({
-                    date,
-                    transactionHash,
-                    transactionId,
-                    type: "Expense",
-                    description: "Fee for IBC Transfer",
-                    feeAmount: await getFees(tx),
-                    feeAsset: baseSymbol,
-                  })
-                );
-              }
-            }
-          }
-
+          const txs = await ibcMsgTransfer(address, baseSymbol, tx, logs);
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            )
+          );
           break;
         }
         case "/cosmos.gov.v1beta1.MsgVote": {
-          for (const log of logs) {
-            const voteAttributes =
-              log.events.find(({ type }) => type === "proposal_vote")
-                ?.attributes ?? [];
-            const proposalId = getValueOfKey(
-              voteAttributes,
-              "proposal_id"
-            )?.value;
-
-            transactions.push(
-              createTransaction({
-                date,
-                transactionHash,
-                transactionId,
-                type: "Expense",
-                feeAmount: await getFees(tx),
-                feeAsset: baseSymbol,
-                description: `Vote on #${proposalId}`,
-              })
-            );
-          }
+          const txs = await msgVote(baseSymbol, tx, logs);
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            )
+          );
           break;
         }
         case "/cosmos.staking.v1beta1.MsgDelegate": {
-          for (const log of logs) {
-            const delegates = log.events.filter(
-              ({ type }) => type === "delegate"
-            );
-            for (const { attributes } of delegates) {
-              const amount = attributes.find(({ key }) => key === "amount");
-              const denoms = amount
-                ? getDenominationsValueList(amount.value)
-                : [["0", "Unknown"]];
-              for (const [amount, denom] of denoms) {
-                const { symbol, decimals } = await getIbcDenomination(denom);
-                const tokenAmount = bigDecimal.divide(
-                  amount,
-                  getDenominator(decimals),
-                  decimals
-                );
-
-                transactions.push(
-                  createTransaction({
-                    date,
-                    transactionHash,
-                    transactionId,
-                    type: "Expense",
-                    description: `Delegated ${tokenAmount} ${symbol}`,
-                    feeAmount: await getFees(tx),
-                    feeAsset: baseSymbol,
-                  })
-                );
-              }
-            }
-
-            const transfers = log.events.filter(
-              ({ type }) => type == "transfer"
-            );
-
-            for (const { attributes } of transfers) {
-              const recipient = getValueOfKey(attributes, "recipient");
-              if (recipient?.value === address) {
-                const amount = getValueOfKey(attributes, "amount");
-                const denoms = amount
-                  ? getDenominationsValueList(amount.value)
-                  : [["0", "Unknown"]];
-                for (const [amount, denom] of denoms) {
-                  const { symbol, decimals } = await getIbcDenomination(denom);
-                  const tokenAmount = bigDecimal.divide(
-                    amount,
-                    getDenominator(decimals),
-                    decimals
-                  );
-                  transactions.push(
-                    createTransaction({
-                      date,
-                      transactionHash,
-                      transactionId,
-                      type: "Income",
-                      description: "Claim Rewards from Delegating",
-                      receivedAmount: tokenAmount,
-                      receivedAsset: symbol,
-                    })
-                  );
-                }
-              }
-            }
-          }
-
+          const txs = await msgDelegate(address, baseSymbol, tx, logs);
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            )
+          );
           break;
         }
         case "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward": {
-          const rewards: Record<string, string> = {};
-          for (const log of logs) {
-            const transfers = log.events.filter(
-              (event) => event.type === "transfer"
-            );
-            for (const { attributes } of transfers) {
-              const recipient = getValueOfKey(attributes, "recipient");
-              if (recipient?.value === address) {
-                const amount = getValueOfKey(attributes, "amount");
-
-                const denoms = amount
-                  ? getDenominationsValueList(amount?.value)
-                  : [["0", "Unknown"]];
-
-                for (const [amount, denom] of denoms) {
-                  const tokenInfo = await getIbcDenomination(denom);
-                  const tokenAmount = bigDecimal.divide(
-                    amount,
-                    getDenominator(tokenInfo.decimals),
-                    tokenInfo.decimals
-                  );
-
-                  if (!rewards[tokenInfo.symbol]) {
-                    rewards[tokenInfo.symbol] = "";
-                  }
-
-                  rewards[tokenInfo.symbol] = bigDecimal.add(
-                    rewards[tokenInfo.symbol],
-                    tokenAmount
-                  );
-                }
-              }
-            }
-          }
-
-          for (const token in rewards) {
-            transactions.push(
-              createTransaction({
-                date,
-                transactionHash,
-                transactionId,
-                type: "Income",
-                description: "Claimed Rewards",
-                receivedAmount: rewards[token],
-                receivedAsset: token,
-              })
-            );
-          }
-
+          const txs = await msgWithdrawDelegatorReward(address, logs);
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            )
+          );
           transactions.push(
             createTransaction({
               date,
@@ -782,52 +380,12 @@ async function processTransaction(
 
         /* LEGACY ACTION TYPES */
         case "withdraw_delegator_reward": {
-          const rewards: Record<string, string> = {};
-          for (const log of logs) {
-            const transferInfo =
-              log.events.find(({ type }) => type === "transfer")?.attributes ??
-              [];
-            const recipient = getValueOfKey(transferInfo, "recipient");
-            const amount = getValueOfKey(transferInfo, "amount");
-            const denoms = amount
-              ? getDenominationsValueList(amount?.value)
-              : [["0", "Unknown"]];
-
-            if (recipient?.value === address) {
-              for (const [amount, denom] of denoms) {
-                const tokenInfo = await getIbcDenomination(denom);
-                const tokenAmount = bigDecimal.divide(
-                  amount,
-                  getDenominator(tokenInfo.decimals),
-                  tokenInfo.decimals
-                );
-
-                if (!rewards[tokenInfo.symbol]) {
-                  rewards[tokenInfo.symbol] = "";
-                }
-
-                rewards[tokenInfo.symbol] = bigDecimal.add(
-                  rewards[tokenInfo.symbol],
-                  tokenAmount
-                );
-              }
-            }
-          }
-
-          for (const token in rewards) {
-            transactions.push(
-              createTransaction({
-                date,
-                transactionHash,
-                transactionId,
-                type: "Income",
-                description: "Claimed Rewards",
-                receivedAmount: rewards[token],
-                receivedAsset: token,
-              })
-            );
-          }
-
+          const txs = await legacyWithdrawDelegatorReward(address, logs);
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            )
+          );
           transactions.push(
             createTransaction({
               date,
@@ -843,72 +401,12 @@ async function processTransaction(
           break;
         }
         case "send": {
-          for (const log of logs) {
-            const transferInfo =
-              log.events.find(({ type }) => type === "transfer")?.attributes ??
-              [];
-            const recipient = getValueOfKey(transferInfo, "recipient");
-            const sender = getValueOfKey(transferInfo, "sender");
-            const amount = getValueOfKey(transferInfo, "amount");
-            const denoms = amount
-              ? getDenominationsValueList(amount?.value)
-              : [["0", "Unknown"]];
-
-            if (recipient?.value === address) {
-              for (const [amount, denom] of denoms) {
-                const tokenInfo = await getIbcDenomination(denom);
-                const tokenAmount = bigDecimal.divide(
-                  amount,
-                  getDenominator(tokenInfo.decimals),
-                  tokenInfo.decimals
-                );
-
-                transactions.push(
-                  createTransaction({
-                    date,
-                    transactionHash,
-                    transactionId,
-                    type: "Deposit",
-                    receivedAmount: tokenAmount,
-                    receivedAsset: tokenInfo.symbol,
-                    description: `Received from ${sender?.value}`,
-                  })
-                );
-              }
-            } else if (sender?.value === address) {
-              for (const [amount, denom] of denoms) {
-                const tokenInfo = await getIbcDenomination(denom);
-                const tokenAmount = bigDecimal.divide(
-                  amount,
-                  getDenominator(tokenInfo.decimals),
-                  tokenInfo.decimals
-                );
-
-                transactions.push(
-                  createTransaction({
-                    date,
-                    transactionHash,
-                    transactionId,
-                    type: "Transfer",
-                    receivedAmount: tokenAmount,
-                    receivedAsset: tokenInfo.symbol,
-                    description: `Sent to ${recipient?.value}`,
-                  })
-                );
-              }
-
-              transactions.push(
-                createTransaction({
-                  date,
-                  transactionHash,
-                  transactionId,
-                  type: "Expense",
-                  feeAmount: await getFees(tx),
-                })
-              );
-            }
-          }
-
+          const txs = await legacySend(address, baseSymbol, tx, logs);
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            )
+          );
           break;
         }
         case "delegate": {

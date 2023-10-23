@@ -1,0 +1,33 @@
+export function createTransaction({
+  date = "",
+  type = "Other",
+  sentAsset = "",
+  sentAmount = "",
+  receivedAsset = "",
+  receivedAmount = "",
+  feeAsset = "",
+  feeAmount = "",
+  marketValueCurrency = "",
+  marketValue = "",
+  description = "",
+  transactionHash = "",
+  transactionId = "",
+  meta = "",
+}: Transaction) {
+  return {
+    date,
+    sentAmount,
+    sentAsset,
+    receivedAmount,
+    receivedAsset,
+    feeAmount,
+    feeAsset,
+    marketValue,
+    marketValueCurrency,
+    type,
+    description,
+    transactionHash,
+    transactionId,
+    meta,
+  };
+}

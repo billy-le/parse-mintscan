@@ -6,7 +6,7 @@ import csvParser from "csv-parser";
 import { stringify as csvStringify } from "csv-stringify/sync";
 import processTransaction from "./processTransaction.ts";
 import bigDecimal from "js-big-decimal";
-import { chains, assets } from "chain-registry";
+import { assets } from "chain-registry";
 
 const networks = process.argv.slice(2);
 if (!networks.length) throw new Error("no network=wallet provided as argument");
@@ -41,7 +41,7 @@ async function main({
   decimals: number;
 }) {
   const csvFilename = `./csv/${network}_data.csv`;
-  const timeoutFilename = "timeout_txs.txt";
+  const timeoutFilename = `${symbol}_timeout_txs.txt`;
 
   chain([
     fs.createReadStream("./headers/koinly.txt"),
