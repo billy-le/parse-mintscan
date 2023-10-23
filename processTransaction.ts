@@ -21,6 +21,7 @@ import { legacyVote } from "./processors/legacyVote";
 import { legacySwapWithinBatch } from "./processors/legacySwapWithinBatch";
 import { legacyDepositWithinBatch } from "./processors/legacyDepositWithinBatch";
 import { legacyBeginRedelegate } from "./processors/legacyBeginRedelegate";
+import { wasmMessageExecuteContract } from "./processors/wasmMsgExecuteContract";
 
 async function processTransaction(
   baseSymbol: string,
@@ -80,28 +81,17 @@ async function processTransaction(
           break;
         }
         case "/cosmwasm.wasm.v1.MsgExecuteContract": {
-          for (const { events } of logs) {
-            const action = events
-              .find((evt) => evt.type == "wasm")
-              ?.attributes?.find(({ key }) => key === "action")?.value;
-
-            switch (action) {
-              default: {
-                break;
-              }
-            }
-            // const keys = new Set();
-            // events.forEach(({ type }) => keys.add(type));
-
-            // for (const { type, attributes } of events) {
-            //   if (type === "wasm") {
-            //     const action = attributes.find(
-            //       ({ key }) => key === "action"
-            //     )?.value;
-            //     console.log(action);
-            //   }
-            // }
-          }
+          const txs = await wasmMessageExecuteContract(
+            address,
+            baseSymbol,
+            tx,
+            logs
+          );
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            )
+          );
           break;
         }
         case "/ibc.core.channel.v1.MsgTimeout": {
