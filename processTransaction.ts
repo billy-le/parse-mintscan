@@ -1,7 +1,7 @@
 import fs from "fs";
 import util from "util";
 import { exec } from "child_process";
-import { add, format as dateFormat, parseISO } from "date-fns";
+import { format as dateFormat, parseISO } from "date-fns";
 
 import bigDecimal from "js-big-decimal";
 
@@ -23,8 +23,6 @@ type TxType = Record<
 >;
 
 const execPromise = util.promisify(exec);
-const precision = 6;
-const denominator = Math.pow(10, precision);
 
 function getAssetInfo(asset: string) {
   return asset.split(/^(\d+)(.+)/).filter((x) => x);
@@ -158,6 +156,8 @@ function getDenominationsValueList(value: string) {
 }
 
 async function processTransaction(
+  baseSymbol: string,
+  baseDecimals: number,
   address: string,
   {
     txhash: transactionHash,
@@ -221,7 +221,7 @@ async function processTransaction(
         transactionId,
         type: "Expense",
         feeAmount: await getFees(tx),
-        feeAsset: "ATOM",
+        feeAsset: baseSymbol,
       })
     );
   } else {
@@ -325,7 +325,7 @@ async function processTransaction(
                       transactionId,
                       description: `Redelegated ${tokenAmount} ${symbol} from ${source} to ${dest}`,
                       feeAmount: await getFees(tx),
-                      feeAsset: "ATOM",
+                      feeAsset: baseSymbol,
                       type: "Expense",
                     })
                   );
@@ -377,7 +377,11 @@ async function processTransaction(
                     transactionHash,
                     transactionId,
                     description: "Remove from Liquidity Pool",
-                    sentAmount: bigDecimal.divide(amount, getDenominator(6), 6),
+                    sentAmount: bigDecimal.divide(
+                      amount,
+                      getDenominator(baseDecimals),
+                      baseDecimals
+                    ),
                     sentAsset: denom,
                   })
                 );
@@ -392,7 +396,7 @@ async function processTransaction(
               type: "Expense",
               description: "Fee for Removing from Liquidity Pool",
               feeAmount: await getFees(tx),
-              feeAsset: "ATOM",
+              feeAsset: baseSymbol,
             })
           );
           break;
@@ -439,7 +443,7 @@ async function processTransaction(
                   sentAsset: offerSymbol,
                   receivedAmount: demand,
                   receivedAsset: demandSymbol,
-                  description: `!! Swap ${offer} ${offerSymbol} for ${demand} ${demandSymbol}`,
+                  description: `Swap ${offer} ${offerSymbol} for ${demand} ${demandSymbol}`,
                   feeAmount: bigDecimal.divide(
                     offerFee,
                     getDenominator(offerDecimals),
@@ -458,7 +462,7 @@ async function processTransaction(
               transactionId,
               description: "Fee for Swapping",
               feeAmount: await getFees(tx),
-              feeAsset: "ATOM",
+              feeAsset: baseSymbol,
               type: "Expense",
             })
           );
@@ -531,7 +535,7 @@ async function processTransaction(
                       transactionId,
                       type: "Expense",
                       feeAmount: await getFees(tx),
-                      feeAsset: "ATOM",
+                      feeAsset: baseSymbol,
                       description: "Fee for Transfer",
                     })
                   );
@@ -610,7 +614,7 @@ async function processTransaction(
                     type: "Expense",
                     description: "Fee for IBC Transfer",
                     feeAmount: await getFees(tx),
-                    feeAsset: "ATOM",
+                    feeAsset: baseSymbol,
                   })
                 );
               }
@@ -636,7 +640,7 @@ async function processTransaction(
                 transactionId,
                 type: "Expense",
                 feeAmount: await getFees(tx),
-                feeAsset: "ATOM",
+                feeAsset: baseSymbol,
                 description: `Vote on #${proposalId}`,
               })
             );
@@ -669,7 +673,7 @@ async function processTransaction(
                     type: "Expense",
                     description: `Delegated ${tokenAmount} ${symbol}`,
                     feeAmount: await getFees(tx),
-                    feeAsset: "ATOM",
+                    feeAsset: baseSymbol,
                   })
                 );
               }
@@ -768,7 +772,7 @@ async function processTransaction(
               transactionId,
               type: "Expense",
               feeAmount: await getFees(tx),
-              feeAsset: "ATOM",
+              feeAsset: baseSymbol,
               description: "Fees from Claiming Rewards",
             })
           );
@@ -831,7 +835,7 @@ async function processTransaction(
               transactionId,
               type: "Expense",
               feeAmount: await getFees(tx),
-              feeAsset: "ATOM",
+              feeAsset: baseSymbol,
               description: "Fees from Claiming Rewards",
             })
           );
@@ -916,7 +920,11 @@ async function processTransaction(
               ? getDenominationsValueList(delegateAmount.value)
               : ["0", "Unknown"];
 
-            const tokenAmount = bigDecimal.divide(amount, getDenominator(6), 6);
+            const tokenAmount = bigDecimal.divide(
+              amount,
+              getDenominator(baseDecimals),
+              baseDecimals
+            );
 
             transactions.push(
               createTransaction({
@@ -1053,7 +1061,7 @@ async function processTransaction(
               transactionId,
               type: "Expense",
               feeAmount: await getFees(tx),
-              feeAsset: "ATOM",
+              feeAsset: baseSymbol,
               description: "Fee for Swapping",
             })
           );
@@ -1127,7 +1135,7 @@ async function processTransaction(
                       type: "Expense",
                       description: "Fee for adding to Liquidity Pool",
                       feeAmount: await getFees(tx),
-                      feeAsset: "ATOM",
+                      feeAsset: baseSymbol,
                     })
                   );
                 }
@@ -1154,11 +1162,11 @@ async function processTransaction(
                   type: "Expense",
                   description: `Redelgated ${bigDecimal.divide(
                     amount?.value,
-                    getDenominator(6),
-                    6
+                    getDenominator(baseDecimals),
+                    baseDecimals
                   )} ATOM from ${source?.value} to ${dest?.value}`,
                   feeAmount: await getFees(tx),
-                  feeAsset: "ATOM",
+                  feeAsset: baseSymbol,
                 })
               );
             }
@@ -1177,7 +1185,11 @@ async function processTransaction(
 
                   return bigDecimal.add(
                     sum,
-                    bigDecimal.divide(value, getDenominator(6), 6)
+                    bigDecimal.divide(
+                      value,
+                      getDenominator(baseDecimals),
+                      baseDecimals
+                    )
                   );
                 }, "0");
 
@@ -1188,7 +1200,7 @@ async function processTransaction(
                   transactionId,
                   type: "Income",
                   receivedAmount: amount,
-                  receivedAsset: "ATOM",
+                  receivedAsset: baseSymbol,
                   description: "Claimed Rewards from Redelegating",
                 })
               );
