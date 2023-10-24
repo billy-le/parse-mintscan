@@ -26,6 +26,9 @@ import { recvPacket } from "./processors/recv_packet";
 import { lockTokens } from "./processors/lockTokens";
 import { osmosisMsgJoinPool } from "./processors/osmosisMsgJoinPool";
 import { osmosisMsgJoinSwapExternAmountIn } from "./processors/osmosisMsgJoinSwapExternAmountIn";
+import { osmosisMsgSwapExactAmountIn } from "./processors/osmosisMsgSwapExactAmountIn";
+import { osmosisMsgExitPool } from "./processors/osmosMsgExitPool";
+import { msgMultiSend } from "./processors/msgMultiSend";
 
 async function processTransaction(
   baseSymbol: string,
@@ -83,14 +86,104 @@ async function processTransaction(
           // console.log(action);
           break;
         }
-        case "/osmosis.gamm.v1beta1.MsgJoinSwapExternAmountIn": {
-          const txs = await osmosisMsgJoinSwapExternAmountIn(logs);
+        case "/osmosis.superfluid.MsgSuperfluidUndelegate": {
+          break;
+        }
+        case "/osmosis.superfluid.MsgSuperfluidUnbondLock": {
+          transactions.push(
+            createTransaction({
+              date,
+              transactionHash,
+              transactionId,
+              type: "Expense",
+              description: "Fee for Superfluid Unbond and Undelegate",
+              feeAmount: await getFees(tx),
+              feeAsset: baseSymbol,
+            })
+          );
+
+          break;
+        }
+        case "/cosmos.bank.v1beta1.MsgMultiSend": {
+          const txs = await msgMultiSend(address, logs);
           transactions.push(
             ...txs.map((tx) =>
               createTransaction({ ...tx, date, transactionHash, transactionId })
             )
           );
+          break;
+        }
+        case "superfluid_delegate": {
           transactions.push(
+            createTransaction({
+              date,
+              transactionHash,
+              transactionId,
+              type: "Expense",
+              description: "Superfluid Delegate",
+              feeAmount: await getFees(tx),
+              feeAsset: baseSymbol,
+            })
+          );
+          break;
+        }
+        case "/osmosis.gamm.v1beta1.MsgExitPool": {
+          const txs = await osmosisMsgExitPool(logs);
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            ),
+            createTransaction({
+              date,
+              transactionHash,
+              transactionId,
+              type: "Expense",
+              description: "Fee for Exiting Liquidity Pool",
+              feeAmount: await getFees(tx),
+              feeAsset: baseSymbol,
+            })
+          );
+          break;
+        }
+        case "/osmosis.lockup.MsgBeginUnlocking": {
+          // payload doesn't give info on which coins are unbonding
+          transactions.push(
+            createTransaction({
+              date,
+              transactionHash,
+              transactionId,
+              type: "Expense",
+              description: "Fee from Unbonding Liquidity",
+              feeAmount: await getFees(tx),
+              feeAsset: baseSymbol,
+            })
+          );
+          break;
+        }
+        case "/osmosis.gamm.v1beta1.MsgSwapExactAmountIn": {
+          const txs = await osmosisMsgSwapExactAmountIn(logs);
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            ),
+            createTransaction({
+              date,
+              transactionHash,
+              transactionId,
+              type: "Expense",
+              description: "Fee from Swapping",
+              feeAmount: await getFees(tx),
+              feeAsset: baseSymbol,
+            })
+          );
+          break;
+        }
+        case "/osmosis.gamm.v1beta1.MsgJoinSwapExternAmountIn": {
+          const txs = await osmosisMsgJoinSwapExternAmountIn(logs);
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            ),
             createTransaction({
               date,
               transactionHash,
@@ -108,9 +201,7 @@ async function processTransaction(
           transactions.push(
             ...txs.map((tx) =>
               createTransaction({ ...tx, date, transactionHash, transactionId })
-            )
-          );
-          transactions.push(
+            ),
             createTransaction({
               date,
               transactionHash,
@@ -121,6 +212,7 @@ async function processTransaction(
               feeAsset: baseSymbol,
             })
           );
+
           break;
         }
         case "lock_tokens": {
@@ -186,9 +278,7 @@ async function processTransaction(
           transactions.push(
             ...txs.map((tx) =>
               createTransaction({ ...tx, date, transactionHash, transactionId })
-            )
-          );
-          transactions.push(
+            ),
             createTransaction({
               date,
               transactionHash,
@@ -206,10 +296,7 @@ async function processTransaction(
           transactions.push(
             ...txs.map((tx) =>
               createTransaction({ ...tx, date, transactionHash, transactionId })
-            )
-          );
-
-          transactions.push(
+            ),
             createTransaction({
               date,
               transactionHash,
@@ -220,7 +307,6 @@ async function processTransaction(
               type: "Expense",
             })
           );
-
           break;
         }
         case "/cosmos.bank.v1beta1.MsgSend": {
@@ -264,9 +350,7 @@ async function processTransaction(
           transactions.push(
             ...txs.map((tx) =>
               createTransaction({ ...tx, date, transactionHash, transactionId })
-            )
-          );
-          transactions.push(
+            ),
             createTransaction({
               date,
               transactionHash,
@@ -277,7 +361,6 @@ async function processTransaction(
               description: "Fees from Claiming Rewards",
             })
           );
-
           break;
         }
 
@@ -287,9 +370,7 @@ async function processTransaction(
           transactions.push(
             ...txs.map((tx) =>
               createTransaction({ ...tx, date, transactionHash, transactionId })
-            )
-          );
-          transactions.push(
+            ),
             createTransaction({
               date,
               transactionHash,
@@ -297,7 +378,7 @@ async function processTransaction(
               type: "Expense",
               feeAmount: await getFees(tx),
               feeAsset: baseSymbol,
-              description: "!!!! Fees from Claiming Rewards",
+              description: "Fees from Claiming Rewards",
             })
           );
 
@@ -336,9 +417,7 @@ async function processTransaction(
           transactions.push(
             ...txs.map((tx) =>
               createTransaction({ ...tx, date, transactionHash, transactionId })
-            )
-          );
-          transactions.push(
+            ),
             createTransaction({
               date,
               transactionHash,

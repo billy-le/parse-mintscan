@@ -36,7 +36,7 @@ export async function osmosisMsgJoinSwapExternAmountIn(logs: Log[]) {
 
         transactions.push({
           type: "Swap",
-          description: `&&&&&& Swapped from Liquidity Pool`,
+          description: `Swapped from Liquidity Pool`,
           sentAmount: coinInAmount,
           sentAsset: coinInSymbol,
           receivedAmount: coinOutAmount,

@@ -43,6 +43,8 @@ type Log = {
       | "recv_packet"
       | "lock_tokens"
       | "superfluid_delegate"
+      | "token_swapped"
+      | "pool_exited"
       | "/cosmos.bank.v1beta1.MsgMultiSend"
       | "cosmos.authz.v1beta1.EventGrant"
       | "cosmos.authz.v1beta1.EventRevoke"
