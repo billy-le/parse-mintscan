@@ -3,14 +3,8 @@ import { getIbcDenomination } from "../utils/getIbcDenominations";
 import { getDenominationsValueList } from "../utils/getDenominationsValueList";
 import { getDenominator } from "../utils/getDenominator";
 import { getFees } from "../utils/getFees";
-import { getValueOfKey } from "../utils/getValueOfKey";
 
-export async function msgDelegate(
-  address: string,
-  baseSymbol: string,
-  tx: Tx,
-  logs: Log[]
-) {
+export async function msgDelegate(baseSymbol: string, tx: Tx, logs: Log[]) {
   const transactions: Partial<Transaction>[] = [];
   for (const log of logs) {
     const delegates = log.events.filter(({ type }) => type === "delegate");
@@ -33,32 +27,6 @@ export async function msgDelegate(
           feeAmount: await getFees(tx),
           feeAsset: baseSymbol,
         });
-      }
-    }
-
-    const transfers = log.events.filter(({ type }) => type == "transfer");
-
-    for (const { attributes } of transfers) {
-      const recipient = getValueOfKey(attributes, "recipient");
-      if (recipient?.value === address) {
-        const amount = getValueOfKey(attributes, "amount");
-        const denoms = amount
-          ? getDenominationsValueList(amount.value)
-          : [["0", "Unknown"]];
-        for (const [amount, denom] of denoms) {
-          const { symbol, decimals } = await getIbcDenomination(denom);
-          const tokenAmount = bigDecimal.divide(
-            amount,
-            getDenominator(decimals),
-            decimals
-          );
-          transactions.push({
-            type: "Income",
-            description: "Claim Rewards from Delegating",
-            receivedAmount: tokenAmount,
-            receivedAsset: symbol,
-          });
-        }
       }
     }
   }

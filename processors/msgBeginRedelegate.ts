@@ -46,6 +46,7 @@ export async function msgBeginRedelegate(
             for (const [amount, denom] of denoms) {
               const { symbol, decimals } = await getIbcDenomination(denom);
               transactions.push({
+                type: "Income",
                 description: `Claimed Rewards from Redelegating`,
                 receivedAmount: bigDecimal.divide(
                   amount,

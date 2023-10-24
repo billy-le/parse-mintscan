@@ -51,8 +51,6 @@ async function main({
     fs.createWriteStream(csvFilename),
   ]);
 
-  const msgTypes = new Set<string>();
-
   let txCount = 0;
   const pipeline = chain([
     fs.createReadStream(`./data/${network}.json`),
@@ -68,10 +66,6 @@ async function main({
         address,
         transaction
       );
-      const tx = transaction.tx[transaction.tx["@type"].replaceAll(".", "-")];
-      tx.body.messages.forEach((msg: Record<string, any>) => {
-        msgTypes.add(msg["@type"]);
-      });
       transactions.push(mainTx);
       return transactions.join("");
     },
@@ -79,7 +73,6 @@ async function main({
   ]);
 
   pipeline.on("end", async () => {
-    // console.log(msgTypes);
     console.log("data.csv created", `\nprocessed ${txCount} transactions`);
 
     // remove txs from timeouts and meta from csv

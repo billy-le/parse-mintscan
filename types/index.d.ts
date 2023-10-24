@@ -41,8 +41,19 @@ type Log = {
       | "timeout_packet"
       | "send_packet"
       | "recv_packet"
+      | "lock_tokens"
+      | "superfluid_delegate"
+      | "/cosmos.bank.v1beta1.MsgMultiSend"
       | "cosmos.authz.v1beta1.EventGrant"
-      | "cosmos.authz.v1beta1.EventRevoke";
+      | "cosmos.authz.v1beta1.EventRevoke"
+      // OSMOSIS actions
+      | "/osmosis.lockup.MsgBeginUnlocking"
+      | "/osmosis.gamm.v1beta1.MsgSwapExactAmountIn"
+      | "/osmosis.gamm.v1beta1.MsgJoinSwapExternAmountIn"
+      | "/osmosis.gamm.v1beta1.MsgJoinPool"
+      | "/osmosis.superfluid.MsgSuperfluidUnbondLock"
+      | "/osmosis.lockup.MsgBeginUnlocking"
+      | "/osmosis.gamm.v1beta1.MsgExitPool";
     attributes: Array<{
       key: string;
       value: string;

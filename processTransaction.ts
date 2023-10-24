@@ -22,6 +22,10 @@ import { legacySwapWithinBatch } from "./processors/legacySwapWithinBatch";
 import { legacyDepositWithinBatch } from "./processors/legacyDepositWithinBatch";
 import { legacyBeginRedelegate } from "./processors/legacyBeginRedelegate";
 import { wasmMessageExecuteContract } from "./processors/wasmMsgExecuteContract";
+import { recvPacket } from "./processors/recv_packet";
+import { lockTokens } from "./processors/lockTokens";
+import { osmosisMsgJoinPool } from "./processors/osmosisMsgJoinPool";
+import { osmosisMsgJoinSwapExternAmountIn } from "./processors/osmosisMsgJoinSwapExternAmountIn";
 
 async function processTransaction(
   baseSymbol: string,
@@ -52,6 +56,8 @@ async function processTransaction(
         const action = attributes.find(({ key }) => key === "action")?.value;
         if (action) {
           actionSet.add(action);
+        } else {
+          console.log(">>> Logs has no actions!");
         }
       }
     });
@@ -74,6 +80,65 @@ async function processTransaction(
     for (const action of actions) {
       switch (action) {
         default: {
+          // console.log(action);
+          break;
+        }
+        case "/osmosis.gamm.v1beta1.MsgJoinSwapExternAmountIn": {
+          const txs = await osmosisMsgJoinSwapExternAmountIn(logs);
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            )
+          );
+          transactions.push(
+            createTransaction({
+              date,
+              transactionHash,
+              transactionId,
+              type: "Expense",
+              description: "Fee from Adding to Liquidity Pool",
+              feeAmount: await getFees(tx),
+              feeAsset: baseSymbol,
+            })
+          );
+          break;
+        }
+        case "/osmosis.gamm.v1beta1.MsgJoinPool": {
+          const txs = await osmosisMsgJoinPool(logs);
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            )
+          );
+          transactions.push(
+            createTransaction({
+              date,
+              transactionHash,
+              transactionId,
+              type: "Expense",
+              description: `Fees for Joining Pool`,
+              feeAmount: await getFees(tx),
+              feeAsset: baseSymbol,
+            })
+          );
+          break;
+        }
+        case "lock_tokens": {
+          const txs = await lockTokens(address, baseSymbol, tx, logs);
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            )
+          );
+          break;
+        }
+        case "recv_packet": {
+          const txs = await recvPacket(address, logs);
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            )
+          );
           break;
         }
         case "/ibc.core.client.v1.MsgUpdateClient":
@@ -186,7 +251,7 @@ async function processTransaction(
           break;
         }
         case "/cosmos.staking.v1beta1.MsgDelegate": {
-          const txs = await msgDelegate(address, baseSymbol, tx, logs);
+          const txs = await msgDelegate(baseSymbol, tx, logs);
           transactions.push(
             ...txs.map((tx) =>
               createTransaction({ ...tx, date, transactionHash, transactionId })
@@ -232,7 +297,7 @@ async function processTransaction(
               type: "Expense",
               feeAmount: await getFees(tx),
               feeAsset: baseSymbol,
-              description: "Fees from Claiming Rewards",
+              description: "!!!! Fees from Claiming Rewards",
             })
           );
 

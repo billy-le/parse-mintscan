@@ -33,7 +33,7 @@ export async function getIbcDenomination(pathHash: string) {
       ibcDenominations[pathHash] = { symbol: token, decimals: 6 };
 
       await writeFile(filePath, JSON.stringify(ibcDenominations, null, 2));
-      return token;
+      return ibcDenominations[pathHash];
     }
   } catch (err) {
     console.log(err);

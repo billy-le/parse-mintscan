@@ -1,4 +1,7 @@
+import bigDecimal from "js-big-decimal";
+import { getDenominator } from "../utils/getDenominator";
 import { getFees } from "../utils/getFees";
+import { groupAttributesIntoBlocks } from "../utils/groupAttributesIntoBlocks";
 
 export async function wasmMessageExecuteContract(
   address: string,
@@ -10,28 +13,7 @@ export async function wasmMessageExecuteContract(
   for (const { events } of logs) {
     for (const { type, attributes } of events) {
       if (type === "wasm") {
-        const attrLen = attributes.length;
-        const groups: Array<Array<{ key: string; value: string }>> = [];
-
-        for (let i = 0; i < attrLen; ) {
-          const startKey = attributes[i].key;
-          for (let j = i + 1; j < attrLen; j++) {
-            const compareKey = attributes[j].key;
-            if (startKey === compareKey) {
-              const group = attributes.slice(i, j);
-              i = j - 1;
-              groups.push(group);
-              break;
-            }
-            if (j === attrLen - 1) {
-              const group = attributes.slice(i, j + 1);
-              groups.push(group);
-              i = attrLen;
-              break;
-            }
-          }
-          i++;
-        }
+        const groups = groupAttributesIntoBlocks(attributes);
 
         for (const group of groups) {
           const action = group.find(({ key }) => key === "action")?.value;
@@ -197,15 +179,20 @@ export async function wasmMessageExecuteContract(
               ] = groups;
 
               if (fromAddress === address) {
+                const demandAmount = bigDecimal.divide(
+                  demandTokenAmount,
+                  getDenominator(6),
+                  6
+                );
                 transactions.push({
                   type: "Swap",
                   sentAmount: offerTokenAmount,
                   sentAsset: contractAddress,
 
                   // TODO - change later when we get demand token from contract address
-                  receivedAmount: demandTokenAmount,
+                  receivedAmount: demandAmount,
                   receivedAsset: baseSymbol,
-                  description: `Swapped ${offerTokenAmount} ${contractAddress} for ${demandTokenAmount} ${baseSymbol}`,
+                  description: `Swapped ${offerTokenAmount} ${contractAddress} for ${demandAmount} ${baseSymbol}`,
                 });
 
                 transactions.push({
