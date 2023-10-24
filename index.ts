@@ -5,8 +5,9 @@ import { streamArray } from "stream-json/streamers/StreamArray";
 import csvParser from "csv-parser";
 import { stringify as csvStringify } from "csv-stringify/sync";
 import processTransaction from "./processTransaction.ts";
-import bigDecimal from "js-big-decimal";
 import { assets } from "chain-registry";
+import { parseISO, format as dateFormat, compareDesc } from "date-fns";
+import { getBalanceSheet } from "./utils/getBalanceSheet.ts";
 
 const networks = process.argv.slice(2);
 if (!networks.length) throw new Error("no network=wallet provided as argument");
@@ -108,93 +109,63 @@ async function main({
           if (err) return;
         });
 
-        const balanceSheet: Record<
-          string,
-          {
-            sent: string;
-            received: string;
-            fees: string;
-            endingBalance: string;
-          }
-        > = {};
+        if (network === "osmosis") {
+          const records: Array<Record<string, string>> = [];
 
-        fs.createReadStream(`./csv/${network}_data.csv`)
-          .pipe(csvParser())
-          .on("data", (data) => {
-            const sentAsset = data["Sent Currency"];
-            const sentAmount = data["Sent Amount"];
-            const receivedAmount = data["Received Amount"];
-            const receivedAsset = data["Received Currency"];
-            const feeAmount = data["Fee Amount"];
-            const feeAsset = data["Fee Currency"];
-
-            if (sentAsset) {
-              if (!balanceSheet[sentAsset]) {
-                balanceSheet[sentAsset] = {
-                  sent: "0",
-                  fees: "0",
-                  received: "0",
-                  endingBalance: "0",
-                };
+          fs.createReadStream(`./csv/${network}_data.csv`)
+            .pipe(csvParser())
+            .on("data", (data) => {
+              records.push(data);
+            })
+            .on("end", async () => {
+              // map over records and insert rewards
+              const getRewards = await import(
+                `./network-rewards/${network}`
+              ).then(({ getRewards }) => getRewards);
+              const rewards = await getRewards(address);
+              for (const token in rewards) {
+                const rewardsArray = rewards[token];
+                for (const { amount, day } of rewardsArray) {
+                  if (amount) {
+                    records.push({
+                      Date: dateFormat(parseISO(day), "yyyy-MM-dd HH:mm:ss"),
+                      "Received Amount": amount,
+                      "Received Currency": token,
+                      Description: "Received Liquidity Rewards",
+                      Label: "Income",
+                      "Sent Amount": "",
+                      "Sent Currency": "",
+                      "Fee Amount": "",
+                      "Fee Currency": "",
+                      "Net Worth Amount": "",
+                      "Net Worth Currency": "",
+                      TxHash: "",
+                      TxId: "",
+                      Meta: "",
+                    });
+                  }
+                }
               }
 
-              balanceSheet[sentAsset] = {
-                ...balanceSheet[sentAsset],
-                sent: bigDecimal.add(
-                  balanceSheet?.[sentAsset].sent,
-                  sentAmount
-                ),
-              };
-            }
-
-            if (feeAsset) {
-              if (!balanceSheet[feeAsset]) {
-                balanceSheet[feeAsset] = {
-                  sent: "0",
-                  fees: "0",
-                  received: "0",
-                  endingBalance: "0",
-                };
-              }
-
-              balanceSheet[feeAsset] = {
-                ...balanceSheet[feeAsset],
-                fees: bigDecimal.add(balanceSheet?.[feeAsset].fees, feeAmount),
-              };
-            }
-
-            if (receivedAsset) {
-              if (!balanceSheet[receivedAsset]) {
-                balanceSheet[receivedAsset] = {
-                  sent: "0",
-                  fees: "0",
-                  received: "0",
-                  endingBalance: "0",
-                };
-              }
-
-              balanceSheet[receivedAsset] = {
-                ...balanceSheet[receivedAsset],
-                received: bigDecimal.add(
-                  balanceSheet?.[receivedAsset].received,
-                  receivedAmount
-                ),
-              };
-            }
-
-            for (const token in balanceSheet) {
-              const tokenMeta = balanceSheet[token];
-              const outflow = bigDecimal.add(tokenMeta.sent, tokenMeta.fees);
-              balanceSheet[token].endingBalance = bigDecimal.subtract(
-                tokenMeta.received,
-                outflow
+              records.sort((a, b) =>
+                compareDesc(parseISO(a.Date), parseISO(b.Date))
               );
-            }
-          })
-          .on("end", () => {
-            console.log("Your balance is:");
-            console.log(balanceSheet);
-          });
+
+              const headers = Object.keys(records[0]).reduce((acc, key) => {
+                acc[key] = key;
+                return acc;
+              }, {} as (typeof records)[number]);
+              records.unshift(headers);
+              const csv = csvStringify(records);
+              await fs.promises
+                .writeFile(`./csv/${network}_data.csv`, csv)
+                .then(() => {
+                  getBalanceSheet(network);
+                });
+            });
+        } else {
+          getBalanceSheet(network);
+        }
       });
   });
 }
