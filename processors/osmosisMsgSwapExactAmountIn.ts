@@ -8,7 +8,10 @@ export async function osmosisMsgSwapExactAmountIn(logs: Log[]) {
   for (const { events } of logs) {
     for (const { type, attributes } of events) {
       if (type === "token_swapped") {
-        const [, , , { value: tokensIn }, { value: tokensOut }] = attributes;
+        const inTokens = attributes.filter(({ key }) => key === "tokens_in");
+        const outTokens = attributes.filter(({ key }) => key === "tokens_out");
+        const { value: tokensIn } = inTokens[0];
+        const { value: tokensOut } = outTokens[outTokens.length - 1];
 
         const [[inAmount, inDenom]] = getDenominationsValueList(tokensIn);
         const [[outAmount, outDenom]] = getDenominationsValueList(tokensOut);

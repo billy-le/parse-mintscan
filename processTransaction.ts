@@ -31,6 +31,7 @@ import { osmosisMsgExitPool } from "./processors/osmosMsgExitPool";
 import { msgMultiSend } from "./processors/msgMultiSend";
 
 async function processTransaction(
+  network: string,
   baseSymbol: string,
   baseDecimals: number,
   address: string,
@@ -50,7 +51,7 @@ async function processTransaction(
 ) {
   let transactions: Transaction[] = [];
 
-  const date = dateFormat(parseISO(timestamp), "yyyy-MM-dd H:mm:ss");
+  const date = dateFormat(parseISO(timestamp), "yyyy-MM-dd HH:mm:ss");
   const actionSet = new Set<string>();
 
   logs.forEach((log) => {
@@ -69,16 +70,35 @@ async function processTransaction(
   const actions = Array.from(actionSet);
 
   if (!actions.length) {
-    transactions.push(
-      createTransaction({
-        date,
-        transactionHash,
-        transactionId,
-        type: "Expense",
-        feeAmount: await getFees(tx),
-        feeAsset: baseSymbol,
-      })
-    );
+    const {
+      body: { messages },
+    } = (tx as TxType)[(tx["@type"] as string).replaceAll(".", "-")];
+
+    for (const message of messages) {
+      switch (message["@type"]) {
+        case "/ibc-core-client-v1-MsgUpdateClient":
+        case "/ibc.core.channel.v1.MsgRecvPacket":
+        case "/ibc.core.channel.v1.MsgAcknowledgement": {
+          break;
+        }
+        default: {
+          transactions.push(
+            createTransaction({
+              date,
+              transactionHash,
+              transactionId,
+              type: "Expense",
+              feeAmount: await getFees(tx),
+              feeAsset: baseSymbol,
+              description: `Transaction Failed: ${messages
+                .map((msg) => msg["@type"])
+                .join(":")}`,
+            })
+          );
+          break;
+        }
+      }
+    }
   } else {
     for (const action of actions) {
       switch (action) {
@@ -252,7 +272,7 @@ async function processTransaction(
           break;
         }
         case "/ibc.core.channel.v1.MsgTimeout": {
-          await msgTimout(baseSymbol, logs);
+          await msgTimout(network, logs);
           break;
         }
         case "/ibc.core.channel.v1.MsgRecvPacket": {

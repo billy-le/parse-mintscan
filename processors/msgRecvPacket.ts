@@ -13,8 +13,11 @@ export async function msgRecvPacket(address: string, logs: Log[]) {
           const [packetData] = attributes;
           const { amount, denom, receiver, sender } =
             packetData["value__@transfer"];
+          const parts = denom.split("/");
           if (receiver === address) {
-            const { symbol, decimals } = await getIbcDenomination(denom);
+            const { symbol, decimals } = parts.includes("ibc")
+              ? await getIbcDenomination(denom)
+              : await getIbcDenomination(parts[parts.length - 1]);
             const tokenAmount = bigDecimal.divide(
               amount,
               getDenominator(decimals),

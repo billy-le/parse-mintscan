@@ -27,7 +27,7 @@ type Log = {
     type:
       | "delegate"
       | "coin_received"
-      | "transfer"
+      | string
       | "coin_spent"
       | "message"
       | "claim"
@@ -83,3 +83,83 @@ type TxType = Record<
 >;
 
 type Tx = Record<"@type", string> | TxType;
+
+type IOBTxInfo = {
+  tx_hash: string;
+  status: number;
+  time: number;
+  height: number;
+  type: string;
+  memo: string;
+  fee: {
+    amount: Array<{
+      denom: string;
+      amount: string;
+    }>;
+    gas: number;
+  };
+  signers: string[];
+  timeout_height: string;
+  timeout_timestamp: number;
+  ack: string;
+  proof_height: string;
+  next_sequence_recv: number;
+};
+
+type IOBResponseBody = {
+  code: number;
+  message: "success";
+  data: {
+    is_list: boolean;
+    sc_info: {
+      address: string;
+      chain: string;
+      channel_id: string;
+      port_id: string;
+      connection_id: string;
+      client_id: string;
+    };
+    dc_info: {
+      address: string;
+      chain: string;
+      channel_id: string;
+      port_id: string;
+      connection_id: string;
+      client_id: string;
+    };
+    token_info: {
+      base_denom: string;
+      base_denom_chain: string;
+      send_token: {
+        denom: string;
+        denom_path: string;
+      };
+      recv_token: {
+        denom: string;
+        denom_path: string;
+      };
+      amount: string;
+    };
+    relayer_info: {
+      sc_relayer: {
+        relayer_name: string;
+        icon: string;
+        relayer_addr: string;
+      };
+      dc_relayer: {
+        relayer_name: string;
+        icon: string;
+        relayer_addr: string;
+      };
+    };
+    ibc_tx_info: {
+      sc_tx_info: IOBTxInfo | null;
+      dc_tx_info: IOBTxInfo | null;
+      ack_timeout_tx_info: IOBTxInfo | null;
+    };
+    status: number;
+    sequence: string;
+    error_log: string;
+    time_stamp: number;
+  };
+};

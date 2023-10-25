@@ -14,9 +14,9 @@ export async function ibcMsgTransfer(
   const transactions: Partial<Transaction>[] = [];
   for (const { events } of logs) {
     const transfers = events.filter(({ type }) => type === "transfer");
-    const [, , { value: timeoutHeight }] =
-      events.find(({ type }) => type === "send_packet")?.attributes ?? [];
-
+    const timeoutHeight = events
+      .find(({ type }) => type === "send_packet")
+      ?.attributes?.find(({ key }) => key === "packet_timeout_height")?.value;
     for (const { attributes } of transfers) {
       const recipient = getValueOfKey(attributes, "recipient");
       const sender = getValueOfKey(attributes, "sender");
@@ -38,7 +38,7 @@ export async function ibcMsgTransfer(
             description: `Received from ${sender?.value}`,
             receivedAmount: tokenAmount,
             receivedAsset: symbol,
-            meta: `timeout_height: ${timeoutHeight}`,
+            meta: timeoutHeight ? `timeout_height: ${timeoutHeight}` : "",
           });
         }
       } else if (sender?.value === address) {

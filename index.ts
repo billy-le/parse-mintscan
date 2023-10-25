@@ -9,27 +9,6 @@ import { assets } from "chain-registry";
 import { parseISO, format as dateFormat, compareDesc } from "date-fns";
 import { getBalanceSheet } from "./utils/getBalanceSheet.ts";
 
-const networks = process.argv.slice(2);
-if (!networks.length) throw new Error("no network=wallet provided as argument");
-
-for (const network of networks) {
-  const [chain, address] = network.split("=");
-  if (!chain || !address) {
-    throw new Error("chain=address not valid");
-  }
-  const chainInfo = assets.find(({ chain_name }) => chain === chain_name);
-  if (!chainInfo) throw new Error("network name not found");
-
-  const asset = chainInfo.assets[0];
-  const symbol = asset.symbol;
-  const decimals = asset.denom_units.find(
-    (unit) => unit.denom === asset.display
-  )?.exponent;
-  if (!decimals) throw new Error("decimals not found");
-
-  await main({ network: chain, address, symbol, decimals });
-}
-
 async function main({
   network,
   address,
@@ -42,7 +21,7 @@ async function main({
   decimals: number;
 }) {
   const csvFilename = `./csv/${network}_data.csv`;
-  const timeoutFilename = `${symbol}_timeout_txs.txt`;
+  const timeoutFilename = `${network}_timeout_txs.txt`;
 
   chain([
     fs.createReadStream("./headers/koinly.txt"),
@@ -59,9 +38,10 @@ async function main({
     streamArray(),
     async (data) => {
       txCount++;
-      const transactions = [];
+      const transactions: string[] = [];
       const transaction = data.value;
       const mainTx = await processTransaction(
+        network,
         symbol,
         decimals,
         address,
@@ -86,7 +66,6 @@ async function main({
           const timeouts = timeoutData.toString().split("\n");
 
           if (!data.Meta || !timeouts.includes(data.Meta)) {
-            delete data.Meta;
             records.push(data);
           }
         } catch (err) {}
@@ -119,13 +98,60 @@ async function main({
             })
             .on("end", async () => {
               // map over records and insert rewards
-              const getRewards = await import(
-                `./network-rewards/${network}`
-              ).then(({ getRewards }) => getRewards);
-              const rewards = await getRewards(address);
-              for (const token in rewards) {
-                const rewardsArray = rewards[token];
-                for (const { amount, day } of rewardsArray) {
+              const data = await fs.promises.readFile(
+                `./network-rewards/${network}_rewards.json`
+              );
+              if (!data) {
+                const getRewards = await import(
+                  `./network-rewards/${network}`
+                ).then(({ getRewards }) => getRewards);
+                const rewards = await getRewards(address);
+                for (const token in rewards) {
+                  const rewardsArray = rewards[token];
+                  for (const { amount, day } of rewardsArray) {
+                    if (amount) {
+                      records.push({
+                        Date: dateFormat(parseISO(day), "yyyy-MM-dd HH:mm:ss"),
+                        "Received Amount": amount,
+                        "Received Currency": token,
+                        Description: "Received Liquidity Rewards",
+                        Label: "Income",
+                        "Sent Amount": "",
+                        "Sent Currency": "",
+                        "Fee Amount": "",
+                        "Fee Currency": "",
+                        "Net Worth Amount": "",
+                        "Net Worth Currency": "",
+                        TxHash: "",
+                        TxId: "",
+                        Meta: "",
+                      });
+                    }
+                  }
+                }
+
+                records.sort((a, b) =>
+                  compareDesc(parseISO(a.Date), parseISO(b.Date))
+                );
+
+                const headers = Object.keys(records[0]).reduce((acc, key) => {
+                  acc[key] = key;
+                  return acc;
+                }, {} as (typeof records)[number]);
+                records.unshift(headers);
+                const csv = csvStringify(records);
+                await fs.promises
+                  .writeFile(`./csv/${network}_data.csv`, csv)
+                  .then(() => {
+                    getBalanceSheet(network);
+                  });
+                return;
+              }
+
+              const rewardsData = JSON.parse(data.toString());
+              for (const token in rewardsData) {
+                const rewards = rewardsData[token];
+                for (const { amount, day } of rewards) {
                   if (amount) {
                     records.push({
                       Date: dateFormat(parseISO(day), "yyyy-MM-dd HH:mm:ss"),
@@ -146,11 +172,9 @@ async function main({
                   }
                 }
               }
-
               records.sort((a, b) =>
                 compareDesc(parseISO(a.Date), parseISO(b.Date))
               );
-
               const headers = Object.keys(records[0]).reduce((acc, key) => {
                 acc[key] = key;
                 return acc;
@@ -168,4 +192,25 @@ async function main({
         }
       });
   });
+}
+
+const networks = process.argv.slice(2);
+if (!networks.length) throw new Error("no network=wallet provided as argument");
+
+for (const network of networks) {
+  const [chain, address] = network.split("=");
+  if (!chain || !address) {
+    throw new Error("chain=address not valid");
+  }
+  const chainInfo = assets.find(({ chain_name }) => chain === chain_name);
+  if (!chainInfo) throw new Error("network name not found");
+
+  const asset = chainInfo.assets[0];
+  const symbol = asset.symbol;
+  const decimals = asset.denom_units.find(
+    (unit) => unit.denom === asset.display
+  )?.exponent;
+  if (!decimals) throw new Error("decimals not found");
+
+  await main({ network: chain, address, symbol, decimals });
 }
