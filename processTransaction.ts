@@ -29,6 +29,8 @@ import { osmosisMsgJoinSwapExternAmountIn } from "./processors/osmosisMsgJoinSwa
 import { osmosisMsgSwapExactAmountIn } from "./processors/osmosisMsgSwapExactAmountIn";
 import { osmosisMsgExitPool } from "./processors/osmosMsgExitPool";
 import { msgMultiSend } from "./processors/msgMultiSend";
+import { msgExec } from "./processors/msgExec";
+import { msgAcknowledgement } from "./processors/msgAcknowledgement";
 
 async function processTransaction(
   network: string,
@@ -73,15 +75,26 @@ async function processTransaction(
     const {
       body: { messages },
     } = (tx as TxType)[(tx["@type"] as string).replaceAll(".", "-")];
-
     for (const message of messages) {
       switch (message["@type"]) {
-        case "/ibc-core-client-v1-MsgUpdateClient":
+        case "/ibc.core.client.v1.MsgUpdateClient":
         case "/ibc.core.channel.v1.MsgRecvPacket":
         case "/ibc.core.channel.v1.MsgAcknowledgement": {
           break;
         }
         default: {
+          // for (const msg of messages) {
+          //   const type = msg["@type"].replaceAll(".", "-");
+          //   const data = msg[type];
+          //   if (type.includes("MsgTransfer")) {
+          //   } else if (type === "/osmosis-gamm-v1beta1-MsgJoinPool") {
+          //   } else if (
+          //     type === "/cosmos-distribution-v1beta1-MsgWithdrawDelegatorReward"
+          //   ) {
+          //   } else if (type === "/osmosis-gamm-v1beta1-MsgSwapExactAmountIn") {
+          //   }
+          // }
+
           transactions.push(
             createTransaction({
               date,
@@ -104,6 +117,18 @@ async function processTransaction(
       switch (action) {
         default: {
           // console.log(action);
+          break;
+        }
+        case "/ibc.core.client.v1.MsgUpdateClient": {
+          break;
+        }
+        case "/ibc.core.channel.v1.MsgAcknowledgement": {
+          const txs = await msgAcknowledgement(logs);
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            )
+          );
           break;
         }
         case "/osmosis.superfluid.MsgSuperfluidUndelegate": {
@@ -253,10 +278,6 @@ async function processTransaction(
           );
           break;
         }
-        case "/ibc.core.client.v1.MsgUpdateClient":
-        case "/ibc.core.channel.v1.MsgAcknowledgement": {
-          break;
-        }
         case "/cosmwasm.wasm.v1.MsgExecuteContract": {
           const txs = await wasmMessageExecuteContract(
             address,
@@ -275,7 +296,51 @@ async function processTransaction(
           await msgTimout(network, logs);
           break;
         }
+        case "/cosmos.authz.v1beta1.MsgGrant": {
+          transactions.push(
+            createTransaction({
+              date,
+              transactionHash,
+              transactionId,
+              description: "Grant Authz",
+              feeAmount: await getFees(tx),
+              feeAsset: baseSymbol,
+              type: "Expense",
+            })
+          );
+          break;
+        }
+        case "/cosmos.authz.v1beta1.MsgRevoke": {
+          transactions.push(
+            createTransaction({
+              date,
+              transactionHash,
+              transactionId,
+              description: "Revoke Authz",
+              feeAmount: await getFees(tx),
+              feeAsset: baseSymbol,
+              type: "Expense",
+            })
+          );
+          break;
+        }
+        case "/cosmos.authz.v1beta1.MsgExec": {
+          const txs = await msgExec(address, logs);
+
+          transactions.push(
+            ...txs.map((tx) =>
+              createTransaction({ ...tx, date, transactionHash, transactionId })
+            )
+          );
+          break;
+        }
         case "/ibc.core.channel.v1.MsgRecvPacket": {
+          const acknowledgements = logs.flatMap((log) =>
+            log.events.filter((event) => event.type.includes("acknowledge"))
+          );
+
+          if (!acknowledgements.length) break;
+
           const txs = await msgRecvPacket(address, logs);
           transactions.push(
             ...txs.map((tx) =>

@@ -44,7 +44,17 @@ export async function ibcMsgTransfer(
       } else if (sender?.value === address) {
         const ibcRecipient = events
           .find(({ type }) => type === "ibc_transfer")
-          ?.attributes?.find(({ key }) => key === "receiver");
+          ?.attributes?.find(({ key }) => key === "receiver")!;
+        let receiver = "";
+        try {
+          const parsedJson = JSON.parse(ibcRecipient.value);
+          if (parsedJson["autopilot"]) {
+            receiver = parsedJson["autopilot"].receiver;
+          }
+        } catch (err) {
+          receiver = ibcRecipient.value;
+        }
+
         for (const [amount, denom] of denoms) {
           const { symbol, decimals } = await getIbcDenomination(denom);
           const tokenAmount = bigDecimal.divide(
@@ -54,7 +64,7 @@ export async function ibcMsgTransfer(
           );
           transactions.push({
             type: "Transfer",
-            description: `Sent to ${ibcRecipient?.value}`,
+            description: `Sent to ${receiver}`,
             sentAmount: tokenAmount,
             sentAsset: symbol,
             meta: `timeout_height: ${timeoutHeight}`,
