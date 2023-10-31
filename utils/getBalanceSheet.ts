@@ -17,12 +17,12 @@ export function getBalanceSheet(network: string) {
   fs.createReadStream(path.resolve(__dirname, `../csv/${network}_data.csv`))
     .pipe(csvParser())
     .on("data", (data) => {
-      const sentAsset = data["Sent Currency"];
+      const sentAsset = data["Sent Asset"];
       const sentAmount = data["Sent Amount"];
       const receivedAmount = data["Received Amount"];
-      const receivedAsset = data["Received Currency"];
+      const receivedAsset = data["Received Asset"];
       const feeAmount = data["Fee Amount"];
-      const feeAsset = data["Fee Currency"];
+      const feeAsset = data["Fee Asset"];
 
       if (sentAsset) {
         if (!balanceSheet[sentAsset]) {

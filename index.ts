@@ -24,7 +24,7 @@ async function main({
   const timeoutFilename = `${network}_timeout_txs.txt`;
 
   chain([
-    fs.createReadStream("./headers/koinly.txt"),
+    fs.createReadStream("./headers/turbotax.txt"),
     (data) => {
       return data.toString() + "\n";
     },
@@ -113,17 +113,17 @@ async function main({
                       records.push({
                         Date: dateFormat(parseISO(day), "yyyy-MM-dd HH:mm:ss"),
                         "Received Amount": amount,
-                        "Received Currency": token,
+                        "Received Asset": token,
                         Description: "Received Liquidity Rewards",
-                        Label: "Income",
+                        Type: "Income",
                         "Sent Amount": "",
-                        "Sent Currency": "",
+                        "Sent Asset": "",
                         "Fee Amount": "",
-                        "Fee Currency": "",
-                        "Net Worth Amount": "",
-                        "Net Worth Currency": "",
-                        TxHash: "",
-                        TxId: "",
+                        "Fee Asset": "",
+                        "Martket Value": "",
+                        "Market Value Currency": "",
+                        "Transaction Hash": "",
+                        "Transaction Id": "",
                         Meta: "",
                       });
                     }
@@ -156,17 +156,17 @@ async function main({
                     records.push({
                       Date: dateFormat(parseISO(day), "yyyy-MM-dd HH:mm:ss"),
                       "Received Amount": amount,
-                      "Received Currency": token,
+                      "Received Asset": token,
                       Description: "Received Liquidity Rewards",
-                      Label: "Income",
+                      Type: "Income",
                       "Sent Amount": "",
-                      "Sent Currency": "",
+                      "Sent Asset": "",
                       "Fee Amount": "",
-                      "Fee Currency": "",
-                      "Net Worth Amount": "",
-                      "Net Worth Currency": "",
-                      TxHash: "",
-                      TxId: "",
+                      "Fee Asset": "",
+                      "Martket Value": "",
+                      "Market Value Currency": "",
+                      "Transaction Hash": "",
+                      "Transaction Id": "",
                       Meta: "",
                     });
                   }
